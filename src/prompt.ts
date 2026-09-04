@@ -56,8 +56,17 @@ If the profile has nothing bearing on diet or animal ethics, stay close to the p
 - Food in photos counts only when it is clearly identifiable.
 - Text visible inside photos (shirts, signs, captions) is legitimate evidence.
 
+## Second, independent criterion: exceptional intellect
+
+CRITERION B: She is exceptionally intelligent, intellectual, philosophical, thoughtful, and intellectually open-minded. This is a high bar: roughly the top 2-3% of the pool, not "smart and has a degree". Score it separately as "intellectual_probability" (prior ~3%).
+
+Strong evidence for B (each roughly 5-20x): explicitly wants a partner who is intellectually curious, well-read, a polymath, or who questions norms rationally; describes herself as a science/philosophy/ideas person in specifics (named fields, thought experiments, research, "AI/ML conceptual thought experiments", "epistemics", "rationally questioning societal norms"); reads serious nonfiction or philosophy as a main pastime; PhD or research career in a demanding field combined with curiosity signals; engages with big questions (consciousness, ethics, economics, history of ideas); rationalist / effective-altruism / LessWrong / debate / philosophy-club signals; nuance and precision in how she writes.
+Moderate (2-4x): "nerd" self-description with substance behind it; NPR/podcast/long-form media as a stated habit; "intellectual conversations" or "deep convos" listed as a want (common, so only moderate); STEM or humanities graduate degree on its own.
+Weak or none: "sapiosexual" alone, "smart" alone, a bachelor's degree, liking documentaries, "deep convos" as a throwaway among party interests, astrology, "no drama", "just vibes". Emptiness and pure lifestyle/party content are mild evidence against.
+Tag each evidence item with "criterion": "veg" for the diet criterion or "intellectual" for this one. Photos rarely inform criterion B; bio text does.
+
 ## Output
-Return a JSON object matching the schema you are given: parsed name/age (null if not found), the dietary badge string if one is shown (else null), a list of concrete evidence items each with direction ("for" | "against" | "neutral") and a rough likelihood ratio, a short reasoning paragraph that shows the update from prior to posterior, and finally "probability": your calibrated posterior in [0, 1] that she meets the criterion. Be honest and numerically consistent: if you list only weak evidence, the probability must stay low.`;
+Return a JSON object matching the schema you are given: parsed name/age (null if not found), the dietary badge string if one is shown (else null), a list of concrete evidence items each with criterion, direction ("for" | "against" | "neutral") and a rough likelihood ratio, a short reasoning paragraph that shows the update from prior to posterior (when the schema asks for one), "probability": your calibrated posterior in [0, 1] that she meets the diet criterion, and "intellectual_probability": your calibrated posterior for criterion B. Be honest and numerically consistent: if you list only weak evidence, the probability must stay low.`;
 }
 
 export interface FeedbackExample {
@@ -75,10 +84,14 @@ export interface FeedbackExample {
  * notes on past calls. Changes only when they grade something, so it sits after
  * the cached main prompt.
  */
-export function buildFeedbackPrompt(guidance: string, examples: FeedbackExample[]): string | null {
+export function buildFeedbackPrompt(guidance: string, examples: FeedbackExample[], exemplars: { name: string | null; age: number | null; text: string }[] = []): string | null {
   const parts: string[] = [];
   if (guidance.trim()) {
     parts.push(`## Standing guidance from the user\n${guidance.trim()}`);
+  }
+  if (exemplars.length) {
+    const lines = exemplars.map((e) => `### ${e.name ?? "?"}${e.age ? `, ${e.age}` : ""}\n${e.text.slice(0, 1200)}`);
+    parts.push(`## Reference examples for criterion B\nThe user flagged these profiles as clear cases of "exceptionally intellectual and open-minded". Use them to calibrate the bar: a profile at this level should score high on intellectual_probability; most profiles fall far short.\n${lines.join("\n\n")}`);
   }
   if (examples.length) {
     const lines = examples.map((e) => {

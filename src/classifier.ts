@@ -2,10 +2,11 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { buildSystemPrompt, buildFeedbackPrompt } from "./prompt.js";
-import { feedbackExamples } from "./store.js";
+import { feedbackExamples, exemplarProfiles } from "./store.js";
 import type { Settings } from "./config.js";
 
 const EvidenceSchema = z.object({
+  criterion: z.enum(["veg", "intellectual"]),
   observation: z.string(),
   direction: z.enum(["for", "against", "neutral"]),
   likelihood_ratio: z.number(),
@@ -17,6 +18,7 @@ export const ClassificationSchema = z.object({
   evidence: z.array(EvidenceSchema),
   reasoning: z.string(),
   probability: z.number().min(0).max(1),
+  intellectual_probability: z.number().min(0).max(1),
 });
 /** Same call without the reasoning paragraph: fewer output tokens, faster. */
 export const TerseClassificationSchema = z.object({
@@ -25,6 +27,7 @@ export const TerseClassificationSchema = z.object({
   dietary_badge: z.string().nullable(),
   evidence: z.array(EvidenceSchema),
   probability: z.number().min(0).max(1),
+  intellectual_probability: z.number().min(0).max(1),
 });
 export type Classification = z.infer<typeof ClassificationSchema>;
 
@@ -69,8 +72,8 @@ export async function classifyProfile(profile: ProfileInput, settings: Settings)
   content.push({
     type: "text",
     text: settings.captureReasoning
-      ? "Estimate the probability that this woman meets the criterion. Follow the Bayesian procedure and return the JSON object."
-      : "Estimate the probability that this woman meets the criterion. Follow the Bayesian procedure and return the JSON object. Keep it terse: at most 4 evidence items, each observation under 12 words, no prose.",
+      ? "Estimate both probabilities for this woman. Follow the Bayesian procedure and return the JSON object."
+      : "Estimate both probabilities for this woman. Follow the Bayesian procedure and return the JSON object. Keep it terse: at most 5 evidence items, each observation under 12 words, no prose.",
   });
 
   // Haiku 4.5 predates adaptive thinking and the effort parameter; every other
@@ -91,6 +94,7 @@ export async function classifyProfile(profile: ProfileInput, settings: Settings)
       note: d.note,
       profileSnippet: (d.profileText ?? "").replace(/\s+/g, " ").slice(0, 220),
     })),
+    exemplarProfiles().map((d) => ({ name: d.name, age: d.age, text: d.profileText ?? "" })),
   );
   if (feedback) system.push({ type: "text", text: feedback });
 

@@ -53,6 +53,15 @@
     </label>
     <p class="hint">Tinder rations super likes. When none are left, the app sends a regular like instead.</p>
 
+    <label class="row"><span>Intellectual exception</span>
+      <select id="intellectualEnabled"><option value="true">On</option><option value="false">Off</option></select>
+    </label>
+    <label class="row" id="intellectualRow">
+      <span>Also like when P(intellectual) ≥ <b id="intellectualVal"></b></span>
+      <input id="intellectualThreshold" type="range" min="0" max="1" step="0.01" />
+    </label>
+    <p class="hint">Exceptionally intelligent, intellectual, philosophical, thoughtful, and open-minded. Scored separately with a ~3% prior. Flag reference examples on cards with the 🧠 button; they're shown to the model.</p>
+
     <h2>Batches</h2>
     <label class="row"><span>Batch length (minutes, random between)</span>
       <span class="pair"><input id="batchMinMinutes" type="number" min="1" max="600" /><input id="batchMaxMinutes" type="number" min="1" max="600" /></span>
@@ -140,7 +149,7 @@
   <section class="review">
     <div class="filters panel">
       <label class="row">
-        <span>Show profiles with P(veg*n) ≥ <b id="minPVal">0%</b></span>
+        <span><select id="minPWhich" class="inline"><option value="veg">P(veg*n)</option><option value="int">P(intellectual)</option><option value="max">Either</option></select> ≥ <b id="minPVal">0%</b></span>
         <input id="minP" type="range" min="0" max="1" step="0.05" value="0" />
       </label>
       <label class="row"><span>Model's call</span>
@@ -169,7 +178,8 @@
         <h3 class="name"></h3>
         <span class="badge action"></span>
       </div>
-      <div class="prob"><div class="bar"><div class="fill"></div><div class="thresh" title="Like threshold"></div><div class="thresh super" title="Super like threshold" hidden></div></div><span class="pval"></span></div>
+      <div class="prob"><span class="plabel">🌱 veg*n</span><div class="bar"><div class="fill"></div><div class="thresh" title="Like threshold"></div><div class="thresh super" title="Super like threshold" hidden></div></div><span class="pval"></span></div>
+      <div class="prob prob-int" hidden><span class="plabel">🧠 intellectual</span><div class="bar"><div class="fill int"></div><div class="thresh int" title="Intellectual threshold" hidden></div><div class="thresh super" title="Super like threshold" hidden></div></div><span class="pval"></span></div>
       <div class="model"><span class="badge modelchip"></span><span class="stage"></span></div>
       <div class="diet"></div>
       <ul class="evidence"></ul>
@@ -182,6 +192,7 @@
           <button class="vbtn right" data-v="about_right" title="The model's probability was about right">✓ No change</button>
           <button class="vbtn higher" data-v="higher" title="The model's probability should have been higher">⬆ Higher probability</button>
         </span>
+        <button class="vbtn exemplar" title="Flag as a reference example of the intellectual criterion (shown to the model)">🧠 Exemplar</button>
         <label class="userp"><span>Your estimate</span><input type="number" class="userpRange" min="0" max="100" step="1" placeholder="–" /><span>%</span></label>
       </div>
       <textarea class="note" rows="2" placeholder="Notes for the model: what did it miss or over-weight here? Saved on blur; fed into future prompts."></textarea>
@@ -198,7 +209,8 @@
         <h3 class="name"></h3>
         <span class="badge action"></span>
       </div>
-      <div class="prob"><div class="bar"><div class="fill"></div><div class="thresh" title="Like threshold"></div><div class="thresh super" title="Super like threshold" hidden></div></div><span class="pval"></span></div>
+      <div class="prob"><span class="plabel">🌱 veg*n</span><div class="bar"><div class="fill"></div><div class="thresh" title="Like threshold"></div><div class="thresh super" title="Super like threshold" hidden></div></div><span class="pval"></span></div>
+      <div class="prob prob-int" hidden><span class="plabel">🧠 intellectual</span><div class="bar"><div class="fill int"></div><div class="thresh int" title="Intellectual threshold" hidden></div><div class="thresh super" title="Super like threshold" hidden></div></div><span class="pval"></span></div>
       <div class="model"><span class="badge modelchip"></span><span class="stage"></span></div>
       <div class="diet"></div>
       <ul class="evidence"></ul>

@@ -10,6 +10,12 @@ export interface Decision {
   threshold: number;
   /** Super-like threshold in force at the time, when super likes were enabled. */
   superLikeThreshold?: number;
+  /** Intellectual-criterion threshold in force at the time, when that criterion was enabled. */
+  intellectualThreshold?: number;
+  /** Which criterion triggered a like: "veg", "intellectual", or "both". */
+  likedFor?: "veg" | "intellectual" | "both";
+  /** Flagged by you as a reference example of the intellectual criterion; fed into the prompt. */
+  exemplar?: "intellectual" | null;
   name: string | null;
   age: number | null;
   photos: string[]; // relative URLs under /photos/
@@ -93,6 +99,11 @@ export function feedbackExamples(limit = 40): Decision[] {
   return readDecisions(100_000)
     .filter((d) => d.classification && (d.verdict || (d.note && d.note.trim()) || typeof d.userProbability === "number"))
     .slice(0, limit);
+}
+
+/** Profiles you flagged as reference examples, newest first. */
+export function exemplarProfiles(limit = 5): Decision[] {
+  return readDecisions(100_000).filter((d) => d.exemplar === "intellectual" && d.profileText).slice(0, limit);
 }
 
 export function stats(): {

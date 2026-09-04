@@ -1,6 +1,6 @@
 const $ = (id) => document.getElementById(id);
-const fields = ["threshold", "superLikeEnabled", "superLikeThreshold", "prior", "batchMinMinutes", "batchMaxMinutes", "continuous", "breakMinMinutes", "breakMaxMinutes", "activeStartHour", "activeEndHour", "maxSwipesPerSession", "minDelayMs", "maxDelayMs", "humanize", "quickPassBelow", "maxPhotos", "model", "effort", "browserChannel", "headless", "captureReasoning", "userGuidance"];
-const boolFields = new Set(["humanize", "continuous", "headless", "superLikeEnabled", "captureReasoning"]);
+const fields = ["threshold", "superLikeEnabled", "superLikeThreshold", "intellectualEnabled", "intellectualThreshold", "prior", "batchMinMinutes", "batchMaxMinutes", "continuous", "breakMinMinutes", "breakMaxMinutes", "activeStartHour", "activeEndHour", "maxSwipesPerSession", "minDelayMs", "maxDelayMs", "humanize", "quickPassBelow", "maxPhotos", "model", "effort", "browserChannel", "headless", "captureReasoning", "userGuidance"];
+const boolFields = new Set(["humanize", "continuous", "headless", "superLikeEnabled", "captureReasoning", "intellectualEnabled"]);
 let settings = {};
 let state = { status: "idle", awaiting: null, swiping: false };
 const decisionsById = new Map();
@@ -43,6 +43,8 @@ function renderSettingsDerived() {
   $("effort").disabled = !effortOk;
   $("effortHint").textContent = effortOk ? "" : "Haiku 4.5 has no effort control.";
   $("superLikeVal").textContent = fmtP(parseFloat($("superLikeThreshold").value));
+  $("intellectualVal").textContent = fmtP(parseFloat($("intellectualThreshold").value));
+  $("intellectualRow").hidden = $("intellectualEnabled").value !== "true";
   $("superLikeRow").hidden = $("superLikeEnabled").value !== "true";
   $("quickPassVal").textContent = fmtP(parseFloat($("quickPassBelow").value));
   $("continuousOpts").hidden = $("continuous").value !== "true";
@@ -119,11 +121,22 @@ function fillClassification(root, d) {
   badge.textContent = actionLabel[d.action] ?? d.action.replace("_", " ");
   badge.className = "badge action " + d.action;
   if (c) {
-    root.querySelector(".fill").style.width = fmtP(c.probability);
-    root.querySelector(".thresh").style.left = fmtP(d.threshold);
-    const superTick = root.querySelector(".thresh.super");
-    if (typeof d.superLikeThreshold === "number") { superTick.style.left = fmtP(d.superLikeThreshold); superTick.hidden = false; }
-    root.querySelector(".pval").textContent = fmtP(c.probability);
+    const bars = root.querySelectorAll(".prob");
+    bars[0].querySelector(".fill").style.width = fmtP(c.probability);
+    bars[0].querySelector(".thresh").style.left = fmtP(d.threshold);
+    bars[0].querySelector(".pval").textContent = fmtP(c.probability);
+    if (typeof d.superLikeThreshold === "number") { const t = bars[0].querySelector(".thresh.super"); t.style.left = fmtP(d.superLikeThreshold); t.hidden = false; }
+    if (typeof c.intellectual_probability === "number") {
+      bars[1].hidden = false;
+      bars[1].querySelector(".fill").style.width = fmtP(c.intellectual_probability);
+      bars[1].querySelector(".pval").textContent = fmtP(c.intellectual_probability);
+      if (typeof d.intellectualThreshold === "number") { const t = bars[1].querySelector(".thresh.int"); t.style.left = fmtP(d.intellectualThreshold); t.hidden = false; }
+      if (typeof d.superLikeThreshold === "number") { const t = bars[1].querySelector(".thresh.super"); t.style.left = fmtP(d.superLikeThreshold); t.hidden = false; }
+    }
+    if (d.likedFor === "intellectual" || d.likedFor === "both") {
+      const lf = document.createElement("span"); lf.className = "badge likedfor"; lf.textContent = d.likedFor === "both" ? "🌱 + 🧠" : "🧠 intellectual";
+      badge.after(lf);
+    }
     root.querySelector(".diet").textContent = c.dietary_badge ? `Dietary badge: ${c.dietary_badge}` : "No dietary badge shown";
     root.querySelector(".modelchip").textContent = modelLabel(d);
     const stage = root.querySelector(".stage");
@@ -135,7 +148,7 @@ function fillClassification(root, d) {
     for (const e of c.evidence) {
       const li = document.createElement("li");
       li.className = e.direction;
-      li.textContent = e.observation;
+      li.textContent = `${e.criterion === "intellectual" ? "🧠 " : ""}${e.observation}`;
       const lr = document.createElement("span"); lr.className = "lr"; lr.textContent = `LR ${fmtRatio(e.likelihood_ratio)}`; li.appendChild(lr);
       ul.appendChild(li);
     }
@@ -232,7 +245,7 @@ function buildCard(d) {
   } else {
     vlabel.textContent = "Your call:";
   }
-  const vbtns = tpl.querySelectorAll(".vbtn");
+  const vbtns = tpl.querySelectorAll(".vbtn:not(.exemplar)");
   const range = tpl.querySelector(".userpRange");
   const paint = (v, up) => {
     vbtns.forEach((b) => b.classList.toggle("on", b.dataset.v === v));
@@ -251,6 +264,13 @@ function buildCard(d) {
   vbtns.forEach((b) => {
     b.onclick = () => send(b.classList.contains("on") ? null : b.dataset.v, b.classList.contains("on") ? null : undefined);
   });
+  const exBtn = tpl.querySelector(".vbtn.exemplar");
+  exBtn.classList.toggle("on", d.exemplar === "intellectual");
+  exBtn.onclick = async () => {
+    const next = exBtn.classList.contains("on") ? null : "intellectual";
+    const res = await fetch(`/api/decisions/${d.id}/exemplar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ exemplar: next }) });
+    if (res.ok) { const body = await res.json(); const cur = decisionsById.get(d.id) ?? d; cur.exemplar = body.decision.exemplar; exBtn.classList.toggle("on", cur.exemplar === "intellectual"); }
+  };
   range.onchange = () => {
     if (range.value === "") { send(null, null); return; }
     const up = Math.min(100, Math.max(0, parseFloat(range.value))) / 100;
@@ -327,8 +347,15 @@ function renderReview() {
   const minP = parseFloat($("minP").value);
   $("minPVal").textContent = fmtP(minP);
   const fAction = $("fAction").value, fSwipe = $("fSwipe").value, fSort = $("fSort").value, fVerdict = $("fVerdict").value;
+  const which = $("minPWhich").value;
+  const scoreOf = (d) => {
+    const c = d.classification; if (!c) return undefined;
+    if (which === "int") return c.intellectual_probability;
+    if (which === "max") return Math.max(c.probability, c.intellectual_probability ?? 0);
+    return c.probability;
+  };
   let rows = all.filter((d) => {
-    const p = d.classification?.probability;
+    const p = scoreOf(d);
     if (minP > 0 && (p === undefined || p < minP)) return false;
     if (fVerdict === "ungraded" && d.verdict) return false;
     if (["higher", "lower", "about_right"].includes(fVerdict) && d.verdict !== fVerdict) return false;
@@ -341,11 +368,11 @@ function renderReview() {
     return true;
   });
   rows.sort((a, b) => {
-    if (fSort === "prob") return (b.classification?.probability ?? -1) - (a.classification?.probability ?? -1) || (b.at > a.at ? 1 : -1);
+    if (fSort === "prob") return (scoreOf(b) ?? -1) - (scoreOf(a) ?? -1) || (b.at > a.at ? 1 : -1);
     if (fSort === "oldest") return a.at < b.at ? -1 : 1;
     return a.at < b.at ? 1 : -1;
   });
-  const above = all.filter((d) => (d.classification?.probability ?? -1) >= minP).length;
+  const above = all.filter((d) => (scoreOf(d) ?? -1) >= minP).length;
   $("filterSummary").textContent = all.length
     ? `${rows.length} of ${all.length} profiles shown · ${above} scored at or above ${fmtP(minP)}`
     : "Nothing evaluated yet.";
@@ -370,7 +397,7 @@ function renderReview() {
   }
 }
 document.addEventListener("focusout", () => { if (reviewDirty) setTimeout(() => { if (!isEditing($("reviewList"))) renderReview(); }, 50); });
-for (const id of ["minP", "fAction", "fSwipe", "fSort", "fVerdict"]) $(id).addEventListener("input", () => { reviewLimit = REVIEW_PAGE; renderReview(); });
+for (const id of ["minP", "minPWhich", "fAction", "fSwipe", "fSort", "fVerdict"]) $(id).addEventListener("input", () => { reviewLimit = REVIEW_PAGE; renderReview(); });
 
 // ---------- tabs ----------
 function showTab(name) {
@@ -410,5 +437,5 @@ $("startBtn").onclick = () => startRun("auto");
 $("reviewBtn").onclick = () => startRun("review");
 $("stopBtn").onclick = () => fetch("/api/stop", { method: "POST" });
 $("saveBtn").onclick = saveSettings;
-for (const f of ["threshold", "prior", "continuous", "quickPassBelow", "superLikeEnabled", "superLikeThreshold", "model"]) $(f).addEventListener("input", renderSettingsDerived);
+for (const f of ["threshold", "prior", "continuous", "quickPassBelow", "superLikeEnabled", "superLikeThreshold", "intellectualEnabled", "intellectualThreshold", "model"]) $(f).addEventListener("input", renderSettingsDerived);
 init();

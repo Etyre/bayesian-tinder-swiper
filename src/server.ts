@@ -89,6 +89,13 @@ app.post("/api/decisions/:id/note", (req, res) => {
   if (!d) return res.status(404).json({ error: "decision not found" });
   res.json({ decision: d });
 });
+app.post("/api/decisions/:id/exemplar", (req, res) => {
+  const ex = req.body?.exemplar;
+  if (ex !== "intellectual" && ex !== null) return res.status(400).json({ error: "exemplar must be 'intellectual' or null" });
+  const d = updateDecision(String(req.params.id), { exemplar: ex });
+  if (!d) return res.status(404).json({ error: "decision not found" });
+  res.json({ decision: d });
+});
 app.post("/api/settings", (req, res) => {
   try {
     res.json(updateSettings(req.body));

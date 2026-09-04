@@ -130,3 +130,12 @@ select:disabled, input:disabled { opacity: .45; cursor: not-allowed; }
 
 .thresh.super { background: #6ea8fe; }
 .thresh.super[hidden] { display: none; }
+
+.plabel { color: var(--muted); font-size: 11px; min-width: 88px; }
+.fill.int { background: linear-gradient(90deg, #5a6478, #b48bff); }
+.thresh.int { background: #b48bff; }
+.thresh.int[hidden] { display: none; }
+.prob-int[hidden] { display: none; }
+.vbtn.exemplar.on { background: rgba(180,139,255,.22); border-color: #b48bff; color: #d9c6ff; }
+select.inline { width: auto; display: inline-block; padding: 2px 6px; font-size: 12px; }
+.badge.likedfor { background: rgba(180,139,255,.18); color: #d9c6ff; text-transform: none; letter-spacing: 0; font-size: 11px; margin-left: 6px; }

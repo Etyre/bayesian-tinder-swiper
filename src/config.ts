@@ -8,6 +8,10 @@ export const SettingsSchema = z.object({
   mode: z.enum(["review", "auto"]).default("review"),
   /** Swipe right when P(meets criteria) >= threshold. */
   threshold: z.number().min(0).max(1).default(0.5),
+  /** Second criterion: exceptionally intelligent, intellectual, philosophical, thoughtful, open-minded.
+   *  Swipe right when P(intellectual) >= this, regardless of the diet score. */
+  intellectualEnabled: z.boolean().default(true),
+  intellectualThreshold: z.number().min(0).max(1).default(0.7),
   /** Super like instead of like when P >= this. */
   superLikeEnabled: z.boolean().default(true),
   superLikeThreshold: z.number().min(0).max(1).default(0.9),
