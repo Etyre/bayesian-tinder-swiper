@@ -151,7 +151,9 @@ function fillClassification(root, d) {
       const li = document.createElement("li");
       li.className = e.direction;
       li.textContent = `${e.criterion === "intellectual" ? "🧠 " : ""}${e.observation}`;
-      const lr = document.createElement("span"); lr.className = "lr"; lr.textContent = `LR ${fmtRatio(e.likelihood_ratio)}`; li.appendChild(lr);
+      if (e.criterion !== "intellectual") {
+        const lr = document.createElement("span"); lr.className = "lr"; lr.textContent = `LR ${fmtRatio(e.likelihood_ratio)}`; li.appendChild(lr);
+      }
       ul.appendChild(li);
     }
     if (c.reasoning) root.querySelector(".reasoning").textContent = c.reasoning;
