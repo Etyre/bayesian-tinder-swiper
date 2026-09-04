@@ -3,6 +3,7 @@
  * (timestamps, per-profile data) so it caches across every request.
  */
 export function buildSystemPrompt(prior: number): string {
+  prior = Math.min(0.99, Math.max(0.01, prior));
   const priorPct = Math.round(prior * 100);
   const neededLR = ((0.5 / 0.5) / (prior / (1 - prior))).toFixed(1);
   return `You estimate, for a single Tinder profile, the probability that the woman shown meets this criterion:

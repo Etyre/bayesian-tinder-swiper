@@ -281,9 +281,10 @@ export class Swiper extends EventEmitter {
         const usage = { ...first.usage };
         let bioOnlyProbability: number | undefined;
         let quickPass = false;
-        if (c && c.probability < settings.quickPassBelow) {
+        if (c && (settings.quickPassBelow >= 1 || c.probability < settings.quickPassBelow)) {
+          // Decide on the bio and first photo alone. At 100% this is every profile.
           quickPass = true;
-          this.log(`${c.name ?? profile.name ?? "unknown"}: bio-only P=${c.probability.toFixed(2)} → quick pass.`);
+          this.log(`${c.name ?? profile.name ?? "unknown"}: bio-only P=${c.probability.toFixed(2)}${c.probability < settings.threshold ? " → quick pass." : ", no further look needed."}`);
         } else if (c && profile.photoCount > profile.photos.length) {
           // Stage 2: worth a proper look. Go through every photo and re-score with the full set.
           bioOnlyProbability = c.probability;
@@ -372,7 +373,16 @@ export class Swiper extends EventEmitter {
           if (dir === "pass") {
             if (!decision.quickPass) await this.browser.secondLook(false, p);
           } else {
-            // All photos were already seen in stage 2; linger a bit more before committing.
+            if (decision.quickPass) {
+              // Stage two didn't run, so the photos haven't been seen yet. Look at all of them, slowly, first.
+              const extra = await this.browser.lookAtAllPhotos(profile, settings, { pace: "slow" });
+              if (extra.length) {
+                const more = this.browser.savePhotos(id, extra, photoUrls.length);
+                const updated = updateDecision(id, { photos: [...photoUrls, ...more] });
+                if (updated) this.emit("decision", updated);
+              }
+            }
+            // Linger a bit more before committing.
             await this.browser.lingerBeforeLike(settings);
           }
         }
@@ -385,7 +395,7 @@ export class Swiper extends EventEmitter {
         this.emit("state", this.state);
         // Quick passes move on faster, but never on a fixed beat.
         await sleep(
-          decision.quickPass ? rand(settings.minDelayMs * 0.4, settings.minDelayMs * 1.5) : rand(settings.minDelayMs, settings.maxDelayMs),
+          decision.quickPass && dir === "pass" ? rand(settings.minDelayMs * 0.4, settings.minDelayMs * 1.5) : rand(settings.minDelayMs, settings.maxDelayMs),
         );
       } else {
         await this.browser.closeProfile();

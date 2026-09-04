@@ -29,18 +29,18 @@
 
     <label class="row">
       <span>Prior <b id="priorVal"></b></span>
-      <input id="prior" type="range" min="0.02" max="0.4" step="0.01" />
+      <input id="prior" type="range" min="0.01" max="0.99" step="0.01" />
     </label>
     <p class="hint">Base rate of qualifying women in your pool. Needed likelihood ratio for 50%: <b id="lrNeeded"></b>×</p>
 
     <label class="row"><span>Quick pass below <b id="quickPassVal"></b></span>
-      <input id="quickPassBelow" type="range" min="0" max="0.5" step="0.01" />
+      <input id="quickPassBelow" type="range" min="0" max="1" step="0.01" />
     </label>
-    <p class="hint">First it judges on the bio and the photo already showing. Below this score it passes right away. Otherwise it looks at every photo and re-scores with the full set before deciding.</p>
+    <p class="hint">First it judges on the bio and the photo already showing. Below this score it decides on that alone. Otherwise it looks at every photo and re-scores with the full set. At 100% every profile is judged on the bio and first photo only; at 0% every profile gets the full look.</p>
 
     <label class="row">
       <span>Like threshold <b id="thresholdVal"></b></span>
-      <input id="threshold" type="range" min="0.2" max="0.95" step="0.05" />
+      <input id="threshold" type="range" min="0" max="1" step="0.01" />
     </label>
     <p class="hint">Swipe right when P(meets criteria) ≥ threshold.</p>
 
@@ -49,7 +49,7 @@
     </label>
     <label class="row" id="superLikeRow">
       <span>Super like when P ≥ <b id="superLikeVal"></b></span>
-      <input id="superLikeThreshold" type="range" min="0.5" max="1" step="0.05" />
+      <input id="superLikeThreshold" type="range" min="0" max="1" step="0.01" />
     </label>
     <p class="hint">Tinder rations super likes. When none are left, the app sends a regular like instead.</p>
 

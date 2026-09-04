@@ -118,7 +118,7 @@ function fillClassification(root, d) {
     root.querySelector(".diet").textContent = c.dietary_badge ? `Dietary badge: ${c.dietary_badge}` : "No dietary badge shown";
     root.querySelector(".modelchip").textContent = modelLabel(d);
     const stage = root.querySelector(".stage");
-    if (d.quickPass) stage.textContent = "bio and first photo only · quick pass";
+    if (d.quickPass) stage.textContent = /pass$/.test(d.action) ? "bio and first photo only · quick pass" : "bio and first photo only";
     else if (typeof d.bioOnlyProbability === "number") stage.textContent = `bio-only ${fmtP(d.bioOnlyProbability)} → all photos ${fmtP(c.probability)}`;
     else stage.textContent = "";
     const ul = root.querySelector(".evidence");

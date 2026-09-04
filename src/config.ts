@@ -13,7 +13,7 @@ export const SettingsSchema = z.object({
   superLikeThreshold: z.number().min(0).max(1).default(0.9),
   /** Prior probability (0-1) that a random woman in your pool meets the criteria.
    *  Drives the Bayesian reasoning in the prompt. */
-  prior: z.number().min(0.005).max(0.9).default(0.1),
+  prior: z.number().min(0.01).max(0.99).default(0.1),
   /** Each run is a "batch": a random session length like a person swiping for a while, then stopping. */
   batchMinMinutes: z.number().min(1).max(600).default(10),
   batchMaxMinutes: z.number().min(1).max(600).default(150),
