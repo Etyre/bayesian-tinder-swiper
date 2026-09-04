@@ -295,6 +295,8 @@ export class Swiper extends EventEmitter {
           profileText: cleanProfileText(profile.text),
           classification: c,
           usage: result.usage,
+          model: settings.model,
+          effort: settings.effort,
           ...(result.refused ? { error: "Model declined to evaluate this profile." } : {}),
         };
       } catch (e) {

@@ -254,7 +254,9 @@ function buildCard(d) {
   if (!d.classification) { tpl.querySelector(".verdict").remove(); note.remove(); }
   tpl.querySelector(".ptext").textContent = d.profileText || "(no profile text captured)";
   const u = d.usage ? ` · ${d.usage.input + d.usage.cacheRead} in / ${d.usage.output} out tokens` : "";
-  tpl.querySelector(".meta").textContent = `${new Date(d.at).toLocaleString()} · ${d.mode} mode · threshold ${fmtP(d.threshold)}${u}`;
+  const modelNames = { "claude-opus-5": "Opus 5", "claude-sonnet-5": "Sonnet 5", "claude-haiku-4-5": "Haiku 4.5", "claude-opus-4-8": "Opus 4.8", "claude-fable-5-1": "Fable 5.1" };
+  const model = d.model ? `${modelNames[d.model] ?? d.model}${d.effort ? `, ${d.effort} effort` : ""}` : "model not recorded";
+  tpl.querySelector(".meta").textContent = `${new Date(d.at).toLocaleString()} · ${model} · ${d.mode} mode · threshold ${fmtP(d.threshold)}${u}`;
   return tpl.querySelector("article");
 }
 

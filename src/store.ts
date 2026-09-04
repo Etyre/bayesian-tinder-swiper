@@ -14,6 +14,9 @@ export interface Decision {
   classification: Classification | null;
   error?: string;
   usage?: { input: number; output: number; cacheRead: number };
+  /** Which model and effort level made the call. */
+  model?: string;
+  effort?: string;
   /** Scraped profile text so the dashboard can show the bio. */
   profileText?: string;
   /** What you did in review mode: swiped from the dashboard, or by hand in the browser. */
