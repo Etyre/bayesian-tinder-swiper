@@ -60,7 +60,7 @@
       <span>Also like when P(intellectual) ≥ <b id="intellectualVal"></b></span>
       <input id="intellectualThreshold" type="range" min="0" max="1" step="0.01" />
     </label>
-    <p class="hint">Exceptionally intelligent, intellectual, philosophical, thoughtful, and open-minded. Scored separately with a ~3% prior. Flag reference examples on cards with the 🧠 button; they're shown to the model.</p>
+    <p class="hint">Exceptionally intelligent, intellectual, philosophical, thoughtful, and open-minded. Scored separately with a ~3% prior. Flag reference cases of the exception on cards with the 🧠 button; they're shown to the model.</p>
 
     <h2>Batches</h2>
     <label class="row"><span>Batch length (minutes, random between)</span>
@@ -192,7 +192,7 @@
           <button class="vbtn right" data-v="about_right" title="The model's probability was about right">✓ No change</button>
           <button class="vbtn higher" data-v="higher" title="The model's probability should have been higher">⬆ Higher probability</button>
         </span>
-        <button class="vbtn exemplar" title="Flag as a reference example of the intellectual criterion (shown to the model)">🧠 Exemplar</button>
+        <button class="vbtn exemplar" title="Flag this profile as a reference case of the intellectual exception (shown to the model)">🧠 Exception</button>
         <label class="userp"><span>Your estimate</span><input type="number" class="userpRange" min="0" max="100" step="1" placeholder="–" /><span>%</span></label>
       </div>
       <textarea class="note" rows="2" placeholder="Notes for the model: what did it miss or over-weight here? Saved on blur; fed into future prompts."></textarea>

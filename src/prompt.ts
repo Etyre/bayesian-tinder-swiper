@@ -91,7 +91,7 @@ export function buildFeedbackPrompt(guidance: string, examples: FeedbackExample[
   }
   if (exemplars.length) {
     const lines = exemplars.map((e) => `### ${e.name ?? "?"}${e.age ? `, ${e.age}` : ""}\n${e.text.slice(0, 1200)}`);
-    parts.push(`## Reference examples for criterion B\nThe user flagged these profiles as clear cases of "exceptionally intellectual and open-minded". Use them to calibrate the bar: a profile at this level should score high on intellectual_probability; most profiles fall far short.\n${lines.join("\n\n")}`);
+    parts.push(`## Reference cases for criterion B (the intellectual exception)\nThe user flagged these profiles as clear cases of the exception: "exceptionally intellectual and open-minded". Use them to calibrate the bar: a profile at this level should score high on intellectual_probability; most profiles fall far short.\n${lines.join("\n\n")}`);
   }
   if (examples.length) {
     const lines = examples.map((e) => {
