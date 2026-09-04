@@ -28,6 +28,17 @@
     <p class="hint"><b>Start batch</b> swipes on its own for a random session length. <b>Review manually</b> scores each card and waits for your swipe from this dashboard, until you stop it.</p>
 
     <label class="row">
+      <span>Prior <b id="priorVal"></b></span>
+      <input id="prior" type="range" min="0.02" max="0.4" step="0.01" />
+    </label>
+    <p class="hint">Base rate of qualifying women in your pool. Needed likelihood ratio for 50%: <b id="lrNeeded"></b>×</p>
+
+    <label class="row"><span>Quick pass below <b id="quickPassVal"></b></span>
+      <input id="quickPassBelow" type="range" min="0" max="0.5" step="0.01" />
+    </label>
+    <p class="hint">First it judges on the bio and the photo already showing. Below this score it passes right away. Otherwise it looks at every photo and re-scores with the full set before deciding.</p>
+
+    <label class="row">
       <span>Like threshold <b id="thresholdVal"></b></span>
       <input id="threshold" type="range" min="0.2" max="0.95" step="0.05" />
     </label>
@@ -41,12 +52,6 @@
       <input id="superLikeThreshold" type="range" min="0.5" max="1" step="0.05" />
     </label>
     <p class="hint">Tinder rations super likes. When none are left, the app sends a regular like instead.</p>
-
-    <label class="row">
-      <span>Prior <b id="priorVal"></b></span>
-      <input id="prior" type="range" min="0.02" max="0.4" step="0.01" />
-    </label>
-    <p class="hint">Base rate of qualifying women in your pool. Needed likelihood ratio for 50%: <b id="lrNeeded"></b>×</p>
 
     <h2>Batches</h2>
     <label class="row"><span>Batch length (minutes, random between)</span>
@@ -73,10 +78,6 @@
     <label class="row"><span>Browse like a human</span>
       <select id="humanize"><option value="true">On (skim photos, read bio, linger on likes)</option><option value="false">Off (fast, mechanical)</option></select>
     </label>
-    <label class="row"><span>Quick pass below <b id="quickPassVal"></b></span>
-      <input id="quickPassBelow" type="range" min="0" max="0.5" step="0.01" />
-    </label>
-    <p class="hint">First it judges on the bio and the photo already showing. Below this score it passes right away. Otherwise it looks at every photo and re-scores with the full set before deciding.</p>
     <label class="row"><span>Max photos sent to model</span><input id="maxPhotos" type="number" min="0" max="9" /></label>
     <label class="row"><span>Model</span>
       <select id="model">
