@@ -5,6 +5,9 @@ let settings = {};
 let state = { status: "idle", awaiting: null, swiping: false };
 const decisionsById = new Map();
 const cardEls = new Map();
+const noteDrafts = new Map(); // unsaved note text by decision id, survives card rebuilds
+const reviewCards = new Map(); // decision id -> { el, ref } in the Review tab
+const isEditing = (el) => el && el.contains(document.activeElement) && ["TEXTAREA", "INPUT"].includes(document.activeElement.tagName);
 let currentDecisionId = null;
 
 function fmtP(p) { return (p * 100).toFixed(0) + "%"; }
@@ -197,7 +200,12 @@ function buildCard(d) {
   paint(d.verdict ?? null, d.userProbability);
   const send = async (verdict, userProbability) => {
     const res = await fetch(`/api/decisions/${d.id}/verdict`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ verdict, userProbability }) });
-    if (res.ok) { const body = await res.json(); decisionsById.set(d.id, body.decision); paint(body.decision.verdict ?? null, body.decision.userProbability); setStats(body.stats); }
+    if (res.ok) {
+      const body = await res.json();
+      const cur = decisionsById.get(d.id) ?? d;
+      cur.verdict = body.decision.verdict; cur.userProbability = body.decision.userProbability;
+      paint(cur.verdict ?? null, cur.userProbability); setStats(body.stats);
+    }
   };
   vbtns.forEach((b) => {
     b.onclick = () => send(b.classList.contains("on") ? null : b.dataset.v, b.classList.contains("on") ? null : undefined);
@@ -210,12 +218,23 @@ function buildCard(d) {
     send(verdict, up);
   };
   const note = tpl.querySelector(".note");
-  note.value = d.note ?? "";
-  note.onblur = async () => {
-    if ((d.note ?? "") === note.value) return;
-    const res = await fetch(`/api/decisions/${d.id}/note`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note: note.value }) });
-    if (res.ok) { const body = await res.json(); decisionsById.set(d.id, body.decision); d.note = body.decision.note; note.classList.add("saved"); setTimeout(() => note.classList.remove("saved"), 1500); }
+  note.value = noteDrafts.get(d.id) ?? d.note ?? "";
+  let noteTimer = null;
+  const saveNote = async () => {
+    const text = note.value;
+    noteDrafts.set(d.id, text);
+    if ((decisionsById.get(d.id)?.note ?? "") === text) return;
+    const res = await fetch(`/api/decisions/${d.id}/note`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note: text }) });
+    if (res.ok) {
+      const body = await res.json();
+      const cur = decisionsById.get(d.id) ?? d;
+      cur.note = body.decision.note; // mutate in place so no card rebuild is triggered
+      if (noteDrafts.get(d.id) === cur.note) noteDrafts.delete(d.id);
+      note.classList.add("saved"); setTimeout(() => note.classList.remove("saved"), 1200);
+    }
   };
+  note.oninput = () => { noteDrafts.set(d.id, note.value); clearTimeout(noteTimer); noteTimer = setTimeout(saveNote, 800); };
+  note.onblur = () => { clearTimeout(noteTimer); saveNote(); };
   if (!d.classification) { tpl.querySelector(".verdict").remove(); note.remove(); }
   tpl.querySelector(".ptext").textContent = d.profileText || "(no profile text captured)";
   const u = d.usage ? ` · ${d.usage.input + d.usage.cacheRead} in / ${d.usage.output} out tokens` : "";
@@ -224,9 +243,17 @@ function buildCard(d) {
 }
 
 function renderDecision(d, prepend) {
+  const prev = decisionsById.get(d.id);
+  if (prev) {
+    // Keep local edits: the server copy may lag a note or grade typed a moment ago.
+    if (noteDrafts.has(d.id)) d.note = prev.note ?? d.note;
+    if (prev.verdict !== undefined && d.verdict == null) d.verdict = prev.verdict;
+    if (prev.userProbability != null && d.userProbability == null) d.userProbability = prev.userProbability;
+  }
   decisionsById.set(d.id, d);
   if (state.awaiting?.decisionId === d.id) renderCurrent();
   const existing = cardEls.get(d.id);
+  if (existing && isEditing(existing)) { scheduleReviewRender(); return; }
   const article = buildCard(d);
   const feed = $("decisions");
   feed.querySelector(".empty")?.remove();
@@ -245,7 +272,11 @@ function scheduleReviewRender() {
   clearTimeout(reviewTimer);
   reviewTimer = setTimeout(renderReview, 150);
 }
+let reviewDirty = false;
 function renderReview() {
+  const list = $("reviewList");
+  if (isEditing(list)) { reviewDirty = true; return; } // finish typing first; re-render on blur
+  reviewDirty = false;
   const all = Array.from(decisionsById.values());
   $("reviewCount").textContent = all.length ? `(${all.length})` : "";
   const minP = parseFloat($("minP").value);
@@ -273,16 +304,26 @@ function renderReview() {
   $("filterSummary").textContent = all.length
     ? `${rows.length} of ${all.length} profiles shown · ${above} scored at or above ${fmtP(minP)}`
     : "Nothing evaluated yet.";
-  const list = $("reviewList");
-  list.innerHTML = "";
-  const frag = document.createDocumentFragment();
-  for (const d of rows.slice(0, 300)) frag.appendChild(buildCard(d));
-  list.appendChild(frag);
+  // Reuse existing cards (same decision object => same card), so typed text and open <details> survive.
+  const shown = rows.slice(0, 300);
+  const keep = new Set(shown.map((d) => d.id));
+  for (const [id, entry] of reviewCards) if (!keep.has(id)) { entry.el.remove(); reviewCards.delete(id); }
+  for (const d of shown) {
+    let entry = reviewCards.get(d.id);
+    if (!entry || entry.ref !== d) {
+      if (entry) entry.el.remove();
+      entry = { el: buildCard(d), ref: d };
+      reviewCards.set(d.id, entry);
+    }
+    list.appendChild(entry.el); // appending in order moves existing nodes into place
+  }
+  list.querySelector(".empty")?.remove();
   if (rows.length > 300) {
     const more = document.createElement("div"); more.className = "empty"; more.textContent = `Showing 300 of ${rows.length}. Tighten the filter to see the rest.`;
     list.appendChild(more);
   }
 }
+document.addEventListener("focusout", () => { if (reviewDirty) setTimeout(() => { if (!isEditing($("reviewList"))) renderReview(); }, 50); });
 for (const id of ["minP", "fAction", "fSwipe", "fSort", "fVerdict"]) $(id).addEventListener("input", renderReview);
 
 // ---------- tabs ----------
