@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tinder Swiper</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<header>
+  <div class="brand">🌱 Tinder Swiper</div>
+  <nav class="tabs">
+    <button class="tab on" data-tab="swipe">Swipe</button>
+    <button class="tab" data-tab="review">Review <span id="reviewCount" class="count"></span></button>
+  </nav>
+  <div class="status"><span id="statusDot" class="dot"></span><span id="statusText">idle</span><span id="batchText" class="batch"></span></div>
+  <div class="actions">
+    <button id="reviewBtn" class="ghost" title="Score each card and wait for your swipe">Review manually</button>
+    <button id="startBtn" class="primary" title="Swipe on its own for a random 10–50 minute session">Start batch (auto)</button>
+    <button id="stopBtn" class="ghost">Stop</button>
+  </div>
+</header>
+
+<main id="tab-swipe" class="tabpane">
+  <aside class="panel settings">
+    <h2>Settings</h2>
+
+    <p class="hint"><b>Start batch</b> swipes on its own for a random session length. <b>Review manually</b> scores each card and waits for your swipe from this dashboard, until you stop it.</p>
+
+    <label class="row">
+      <span>Like threshold <b id="thresholdVal"></b></span>
+      <input id="threshold" type="range" min="0.2" max="0.95" step="0.05" />
+    </label>
+    <p class="hint">Swipe right when P(meets criteria) ≥ threshold.</p>
+
+    <label class="row">
+      <span>Prior <b id="priorVal"></b></span>
+      <input id="prior" type="range" min="0.02" max="0.4" step="0.01" />
+    </label>
+    <p class="hint">Base rate of qualifying women in your pool. Needed likelihood ratio for 50%: <b id="lrNeeded"></b>×</p>
+
+    <h2>Batches</h2>
+    <label class="row"><span>Batch length (minutes, random between)</span>
+      <span class="pair"><input id="batchMinMinutes" type="number" min="1" max="600" /><input id="batchMaxMinutes" type="number" min="1" max="600" /></span>
+    </label>
+    <p class="hint">Each Start runs one batch, like a person swiping for a while, then stops. Also stops when Tinder runs out of profiles or likes.</p>
+    <label class="row"><span>After a batch</span>
+      <select id="continuous"><option value="false">Stop and wait for me</option><option value="true">Take a break, then start the next batch</option></select>
+    </label>
+    <div id="continuousOpts">
+      <label class="row"><span>Break length (minutes, random between)</span>
+        <span class="pair"><input id="breakMinMinutes" type="number" min="1" /><input id="breakMaxMinutes" type="number" min="1" /></span>
+      </label>
+      <label class="row"><span>Only start batches between (hours, 24h)</span>
+        <span class="pair"><input id="activeStartHour" type="number" min="0" max="23" /><input id="activeEndHour" type="number" min="1" max="24" /></span>
+      </label>
+    </div>
+    <label class="row"><span>Max swipes / batch</span><input id="maxSwipesPerSession" type="number" min="1" max="1000" /></label>
+
+    <h2>Behavior</h2>
+    <label class="row"><span>Delay between swipes (ms)</span>
+      <span class="pair"><input id="minDelayMs" type="number" min="500" step="100" /><input id="maxDelayMs" type="number" min="500" step="100" /></span>
+    </label>
+    <label class="row"><span>Browse like a human</span>
+      <select id="humanize"><option value="true">On (skim photos, read bio, linger on likes)</option><option value="false">Off (fast, mechanical)</option></select>
+    </label>
+    <label class="row"><span>Flip through photos <b id="photoFlipVal"></b> of the time</span>
+      <input id="photoFlipChance" type="range" min="0" max="1" step="0.05" />
+    </label>
+    <p class="hint">Otherwise it judges on the bio plus the photo already showing, like a person skimming.</p>
+    <label class="row"><span>Max photos sent to model</span><input id="maxPhotos" type="number" min="0" max="9" /></label>
+    <label class="row"><span>Model</span>
+      <select id="model">
+        <option value="claude-opus-5">Claude Opus 5 (recommended · $5 / $25 per M tokens)</option>
+        <option value="claude-sonnet-5">Claude Sonnet 5 (cheaper · $2 / $10)</option>
+        <option value="claude-haiku-4-5">Claude Haiku 4.5 (cheapest · $1 / $5, no effort control)</option>
+        <option value="claude-opus-4-8">Claude Opus 4.8 ($5 / $25)</option>
+        <option value="claude-fable-5-1">Claude Fable 5.1 (most capable · $10 / $50)</option>
+      </select>
+    </label>
+    <label class="row"><span>Effort</span>
+      <select id="effort"><option>low</option><option>medium</option><option>high</option><option>xhigh</option><option>max</option></select>
+    </label>
+    <label class="row"><span>Browser</span>
+      <select id="browserChannel"><option value="chrome">Installed Chrome</option><option value="chromium">Bundled Chromium</option></select>
+    </label>
+    <button id="saveBtn" class="primary wide">Save settings</button>
+    <p class="hint" id="saveMsg"></p>
+
+    <h2>Stats</h2>
+    <div class="stats">
+      <div><b id="sSeen">0</b><span>seen</span></div>
+      <div><b id="sLiked">0</b><span>liked</span></div>
+      <div><b id="sRec">0</b><span>recommended</span></div>
+      <div><b id="sSession">0</b><span>this batch</span></div>
+    </div>
+    <div class="stats agreement">
+      <div><b id="sAgree">0</b><span>agree</span></div>
+      <div><b id="sDisagree">0</b><span>disagree</span></div>
+      <div><b id="sAgreeRate">–</b><span>agreement</span></div>
+    </div>
+
+    <h2>Log</h2>
+    <pre id="log" class="log"></pre>
+  </aside>
+
+  <section class="feed">
+    <h2>On screen now</h2>
+    <div id="current" class="current empty"></div>
+
+    <h2>Recent</h2>
+    <div id="decisions"></div>
+  </section>
+</main>
+
+<main id="tab-review" class="tabpane" hidden>
+  <section class="review">
+    <div class="filters panel">
+      <label class="row">
+        <span>Show profiles with P(veg*n) ≥ <b id="minPVal">0%</b></span>
+        <input id="minP" type="range" min="0" max="1" step="0.05" value="0" />
+      </label>
+      <label class="row"><span>Model's call</span>
+        <select id="fAction"><option value="all">All</option><option value="like">Liked / recommended like</option><option value="pass">Passed / recommended pass</option><option value="skipped">Not scored</option></select>
+      </label>
+      <label class="row"><span>Your swipe</span>
+        <select id="fSwipe"><option value="all">All</option><option value="like">You liked</option><option value="pass">You passed</option><option value="none">No swipe recorded</option></select>
+      </label>
+      <label class="row"><span>Sort</span>
+        <select id="fSort"><option value="prob">Probability, high to low</option><option value="time">Newest first</option><option value="oldest">Oldest first</option></select>
+      </label>
+      <div class="filterSummary" id="filterSummary"></div>
+    </div>
+    <div id="reviewList" class="reviewList"></div>
+  </section>
+</main>
+
+<template id="cardTpl">
+  <article class="card">
+    <div class="photos"></div>
+    <div class="body">
+      <div class="top">
+        <h3 class="name"></h3>
+        <span class="badge action"></span>
+      </div>
+      <div class="prob"><div class="bar"><div class="fill"></div><div class="thresh"></div></div><span class="pval"></span></div>
+      <div class="diet"></div>
+      <ul class="evidence"></ul>
+      <details><summary>Reasoning</summary><p class="reasoning"></p></details>
+      <details><summary>Profile text</summary><pre class="ptext"></pre></details>
+      <div class="verdict">
+        <span class="vlabel"></span>
+        <button class="vbtn agree" data-v="agree">👍 Agree</button>
+        <button class="vbtn disagree" data-v="disagree">👎 Disagree</button>
+      </div>
+      <div class="meta"></div>
+    </div>
+  </article>
+</template>
+
+<template id="currentTpl">
+  <article class="card big">
+    <div class="photos"></div>
+    <div class="body">
+      <div class="top">
+        <h3 class="name"></h3>
+        <span class="badge action"></span>
+      </div>
+      <div class="prob"><div class="bar"><div class="fill"></div><div class="thresh"></div></div><span class="pval"></span></div>
+      <div class="diet"></div>
+      <ul class="evidence"></ul>
+      <details open><summary>Model's reasoning</summary><p class="reasoning"></p></details>
+      <details><summary>Profile text</summary><pre class="ptext"></pre></details>
+      <div class="swipe">
+        <button class="pass">✕ &nbsp;Pass <kbd>←</kbd></button>
+        <button class="like">♥ &nbsp;Like <kbd>→</kbd></button>
+      </div>
+      <p class="hint swipeHint"></p>
+    </div>
+  </article>
+</template>
+
+<script src="/app.js"></script>
+</body>
+</html>
