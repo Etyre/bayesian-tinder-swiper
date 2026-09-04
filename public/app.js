@@ -364,7 +364,11 @@ function renderReview() {
   });
   rows.sort((a, b) => {
     if (fSort === "prob") return (b.classification?.probability ?? -1) - (a.classification?.probability ?? -1) || (b.at > a.at ? 1 : -1);
-    if (fSort === "int") return intOf(b) - intOf(a) || (b.at > a.at ? 1 : -1);
+    if (fSort === "int") {
+      // Your flagged reference cases first, then the model's own exceptions, then by probability.
+      const rank = (d) => (d.exemplar === "intellectual" ? 2 : d.classification?.intellectual_exception ? 1 : 0);
+      return rank(b) - rank(a) || intOf(b) - intOf(a) || (b.at > a.at ? 1 : -1);
+    }
     if (fSort === "oldest") return a.at < b.at ? -1 : 1;
     return a.at < b.at ? 1 : -1;
   });
