@@ -485,21 +485,46 @@ export class TinderBrowser {
     await page.waitForTimeout(500);
   }
 
-  async swipe(direction: "like" | "pass"): Promise<void> {
+  /** Swipe. Returns what was actually done: a super like falls back to a like when Tinder won't allow one. */
+  async swipe(direction: "like" | "pass" | "superlike"): Promise<"like" | "pass" | "superlike"> {
     const page = this.p();
     if (!this.onRecs()) throw new Error(`Refusing to swipe: browser is on ${page.url()}, not the swipe deck`);
     await this.closeProfile();
+
+    if (direction === "superlike") {
+      const before = await this.currentFingerprint();
+      const star = page.getByRole("button", { name: /^super like$/i }).first();
+      if (await star.isVisible().catch(() => false)) {
+        await star.click({ timeout: 2000 }).catch(async () => {
+          await page.keyboard.press("Enter");
+        });
+      } else {
+        await page.keyboard.press("Enter");
+      }
+      await page.waitForTimeout(1500);
+      // Out of super likes => Tinder shows an upsell instead of advancing the card.
+      const upsell = page.locator("[role='dialog'], [aria-modal='true']").filter({ hasText: /super like/i }).first();
+      const blocked = await upsell.isVisible().catch(() => false);
+      await this.dismissPopups();
+      const after = await this.currentFingerprint();
+      if (!blocked && after && after !== before) return "superlike";
+      this.log("No super likes available; sending a regular like instead.");
+      direction = "like";
+    }
+
     const btnName = direction === "like" ? /^like$/i : /^nope$/i;
+    const key = direction === "like" ? "ArrowRight" : "ArrowLeft";
     const btn = page.getByRole("button", { name: btnName }).first();
     if (await btn.isVisible().catch(() => false)) {
       await btn.click({ timeout: 2000 }).catch(async () => {
-        await page.keyboard.press(direction === "like" ? "ArrowRight" : "ArrowLeft");
+        await page.keyboard.press(key);
       });
     } else {
-      await page.keyboard.press(direction === "like" ? "ArrowRight" : "ArrowLeft");
+      await page.keyboard.press(key);
     }
     await page.waitForTimeout(1200);
     await this.dismissPopups();
+    return direction;
   }
 
   /** Wait until the top card changes (user swiped by hand in review mode). */

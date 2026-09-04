@@ -6,7 +6,7 @@ export interface Decision {
   id: string;
   at: string; // ISO timestamp
   mode: "review" | "auto";
-  action: "like" | "pass" | "recommend_like" | "recommend_pass" | "skipped";
+  action: "like" | "superlike" | "pass" | "recommend_like" | "recommend_pass" | "skipped";
   threshold: number;
   name: string | null;
   age: number | null;
@@ -89,6 +89,7 @@ export function feedbackExamples(limit = 40): Decision[] {
 export function stats(): {
   seen: number;
   liked: number;
+  superLiked: number;
   passed: number;
   recommendedLike: number;
   higher: number;
@@ -105,7 +106,8 @@ export function stats(): {
     : null;
   return {
     seen: all.length,
-    liked: all.filter((d) => d.action === "like").length,
+    liked: all.filter((d) => d.action === "like" || d.action === "superlike").length,
+    superLiked: all.filter((d) => d.action === "superlike").length,
     passed: all.filter((d) => d.action === "pass").length,
     recommendedLike: all.filter((d) => d.action === "recommend_like").length,
     higher: all.filter((d) => d.verdict === "higher").length,
