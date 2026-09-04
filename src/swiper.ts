@@ -235,11 +235,12 @@ export class Swiper extends EventEmitter {
         await this.browser.reloadDeck();
       }
       await this.browser.dismissPopups();
-      if (await this.browser.isOutOfLikes()) {
+      const deck = await this.browser.deckStatus();
+      if (deck === "out_of_likes") {
         this.endBatch("Tinder says you're out of likes.");
         break;
       }
-      if (await this.browser.isOutOfProfiles()) {
+      if (deck === "out_of_profiles") {
         this.endBatch("Tinder has no more profiles to show right now.");
         break;
       }
@@ -397,7 +398,7 @@ export class Swiper extends EventEmitter {
         this.emit("state", this.state);
         // Quick passes move on faster, but never on a fixed beat.
         await sleep(
-          decision.quickPass && dir === "pass" ? rand(500, 2000) : rand(settings.minDelayMs, settings.maxDelayMs),
+          decision.quickPass && dir === "pass" ? rand(300, 1200) : rand(settings.minDelayMs, settings.maxDelayMs),
         );
       } else {
         await this.browser.closeProfile();

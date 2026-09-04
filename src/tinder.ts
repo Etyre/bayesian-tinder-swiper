@@ -250,14 +250,12 @@ export class TinderBrowser {
     }
   }
 
-  async isOutOfProfiles(): Promise<boolean> {
+  /** One read of the page text for both "out of likes" and "no more profiles". */
+  async deckStatus(): Promise<"ok" | "out_of_likes" | "out_of_profiles"> {
     const text = await this.p().evaluate(() => document.body.innerText).catch(() => "");
-    return /there.s no one new around you|no one new around you|run out of potential matches|go global/i.test(text);
-  }
-
-  async isOutOfLikes(): Promise<boolean> {
-    const text = await this.p().evaluate(() => document.body.innerText).catch(() => "");
-    return OUT_OF_LIKES_RE.test(text);
+    if (OUT_OF_LIKES_RE.test(text)) return "out_of_likes";
+    if (/there.s no one new around you|no one new around you|run out of potential matches|go global/i.test(text)) return "out_of_profiles";
+    return "ok";
   }
 
   /** Fingerprint of the card currently on top (name + first photo url). */
@@ -270,7 +268,6 @@ export class TinderBrowser {
   async scrapeCurrentProfile(settings: Settings): Promise<ScrapedProfile | null> {
     const page = this.p();
     if (!(await this.ensureRecs())) return null;
-    await this.dismissPopups();
     // Start from the collapsed card: photos only load while flipping in this view.
     if (page.url().includes("/recs/profile")) await this.closeProfile();
 
@@ -335,7 +332,7 @@ export class TinderBrowser {
     } else {
       await page.keyboard.press("ArrowUp").catch(() => {});
     }
-    await page.waitForTimeout(dwell(900));
+    await page.waitForTimeout(dwell(450));
   }
 
   /** Move the mouse in a few lazy steps somewhere over the card, like a hand resting on the trackpad. */
@@ -571,7 +568,7 @@ export class TinderBrowser {
     } else {
       await page.keyboard.press(key);
     }
-    await page.waitForTimeout(direction === "pass" ? 600 : 1200);
+    await page.waitForTimeout(direction === "pass" ? 400 : 1200);
     await this.dismissPopups();
     return direction;
   }
