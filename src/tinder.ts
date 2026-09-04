@@ -18,6 +18,7 @@ export interface ScrapedProfile {
 }
 
 const RECS_URL = "https://tinder.com/app/recs";
+const DASHBOARD_URL = `http://localhost:${process.env.PORT ?? "4747"}`;
 
 /** Only buttons that dismiss Tinder's own upsells and match screens. Nothing generic
  *  like "Continue", "OK", "Close" or "Accept": those exist in purchase and profile flows too. */
@@ -80,9 +81,9 @@ export class TinderBrowser {
     this.headless = opts.headless ?? settings.headless;
     const common = {
       headless: this.headless,
-      viewport: { width: 1200, height: 900 },
+      viewport: null, // use the real window size, so the dashboard tab lays out normally
       locale: "en-US",
-      args: ["--disable-blink-features=AutomationControlled"],
+      args: ["--disable-blink-features=AutomationControlled", "--window-size=1400,1000"],
       ignoreDefaultArgs: ["--enable-automation"],
     };
     const channel = settings.browserChannel === "chrome" ? "chrome" : undefined;
@@ -109,11 +110,24 @@ export class TinderBrowser {
     await this.ctx.addInitScript(() => {
       Object.defineProperty(navigator, "webdriver", { get: () => undefined });
     });
-    this.page = this.ctx.pages()[0] ?? (await this.ctx.newPage());
+    // First tab: the dashboard. Second tab: Tinder. Both live in this one window.
+    const dashboard = this.ctx.pages()[0] ?? (await this.ctx.newPage());
+    if (!this.headless) await dashboard.goto(DASHBOARD_URL, { waitUntil: "domcontentloaded" }).catch(() => {});
+    this.page = await this.ctx.newPage();
     this.ctx.on("close", () => {
       this.ctx = null;
       this.page = null;
     });
+  }
+
+  /** Reopen the Tinder tab in the same window if it was closed. */
+  async ensureTab(): Promise<void> {
+    if (!this.ctx) throw new Error("Browser is not open");
+    if (this.page && !this.page.isClosed()) return;
+    this.log("Tinder tab was closed; opening a new one in the same window.");
+    this.page = await this.ctx.newPage();
+    await this.page.goto(RECS_URL, { waitUntil: "domcontentloaded" }).catch(() => {});
+    await this.page.waitForTimeout(2500);
   }
 
   private async launchBundledChromium(common: Parameters<typeof chromium.launchPersistentContext>[1]): Promise<BrowserContext> {
@@ -128,8 +142,9 @@ export class TinderBrowser {
     }
   }
 
+  /** The browser window is open. The Tinder tab itself may have been closed; see ensureTab. */
   isOpen(): boolean {
-    return !!this.page && !this.page.isClosed();
+    return !!this.ctx;
   }
 
   async close(): Promise<void> {
@@ -156,6 +171,7 @@ export class TinderBrowser {
 
   /** If we drifted off the swipe deck (wrong click, Tinder redirect), go straight back by URL. No clicking. */
   async ensureRecs(): Promise<boolean> {
+    await this.ensureTab();
     if (this.onRecs()) return true;
     this.log(`Browser is on ${this.p().url()}, not the swipe deck. Navigating back to it.`);
     await this.p().goto(RECS_URL, { waitUntil: "domcontentloaded" }).catch(() => {});
@@ -165,6 +181,7 @@ export class TinderBrowser {
 
   /** Navigate to recs; returns true if we appear logged in. */
   async gotoRecs(): Promise<boolean> {
+    await this.ensureTab();
     const page = this.p();
     if (!page.url().startsWith("https://tinder.com/app/")) {
       await page.goto(RECS_URL, { waitUntil: "domcontentloaded" }).catch(() => {});

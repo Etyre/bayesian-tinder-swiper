@@ -4,7 +4,7 @@ A local web app that swipes Tinder for you, liking only women who are likely veg
 
 ## How it works
 
-1. Playwright opens Google Chrome with its own persistent profile in `data/browser-profile/`. You log into Tinder by hand the first time; the session is remembered.
+1. Playwright opens Google Chrome with its own persistent profile in `data/browser-profile/`, with the dashboard in the first tab and Tinder in the second. You log into Tinder by hand the first time; the session is remembered.
 2. **Start batch (auto)** runs one swiping session of random length (10–50 minutes by default), like a person picking up the app for a while. For each card it flips through the photos, opens the profile, and sends the text (bio, Lifestyle badges such as Dietary Preference, interests, prompts) plus photos and a screenshot to Claude with a structured-output schema.
 3. The model returns evidence items with rough likelihood ratios, a reasoning paragraph, and a calibrated probability. The app swipes right if the probability clears your threshold (default 50%), else left, with human-like pauses, photo flipping, and bio scrolling in between.
 4. The batch ends when its time is up, Tinder runs out of profiles or likes, or the swipe cap is hit. Optionally it takes a random break (default 1.5–6 hours, within active hours) and starts the next batch itself.
