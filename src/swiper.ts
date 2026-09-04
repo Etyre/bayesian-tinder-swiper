@@ -340,7 +340,18 @@ export class Swiper extends EventEmitter {
           await this.browser.ensureRecs();
           continue;
         }
-        if (settings.humanize) await this.browser.secondLook(dir !== "pass", p);
+        if (settings.humanize) {
+          if (dir === "pass") {
+            await this.browser.secondLook(false, p);
+          } else {
+            const extra = await this.browser.lookAtAllPhotos(profile, settings);
+            if (extra.length) {
+              const more = this.browser.savePhotos(id, extra, profile.photos.length);
+              const updated = updateDecision(id, { photos: [...photoUrls, ...more] });
+              if (updated) this.emit("decision", updated);
+            }
+          }
+        }
         const done = await this.browser.swipe(dir);
         if (done !== dir) {
           const updated = updateDecision(id, { action: done });

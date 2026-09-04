@@ -41,7 +41,7 @@ If you don't have Google Chrome installed, switch "Browser" to *Bundled Chromium
 | After a batch | stop | Or take a random break (90–360 min) and start the next batch, only within active hours (9:00–23:00) |
 | Max swipes / batch | 100 | Hard stop per batch |
 | Delay between swipes | 2.5–7 s | Random pause after each swipe |
-| Browse like a human | on | Flips photos with uneven pauses, occasional double-take, scrolls the bio, lingers on profiles it's about to like, rare 12–40 s pause |
+| Browse like a human | on | Flips photos with uneven pauses, occasional double-take, scrolls the bio, rare 12–40 s pause. Before liking or super liking, it looks through every photo with long pauses and usually re-reads the bio, saving any photos it hadn't captured to the card |
 | Flip through photos | 25% | How often it flips through all photos before judging. Otherwise it judges on the bio plus the photo already showing |
 | Max photos sent to model | 5 | Cap when it does flip through |
 | Window | visible | Headless runs without a window. Login always gets a visible window; a real window is slightly harder to fingerprint as a bot |

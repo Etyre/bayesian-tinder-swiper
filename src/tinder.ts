@@ -14,6 +14,7 @@ export interface ScrapedProfile {
   age: number | null;
   text: string;
   photos: Photo[];
+  photoCount: number;
   screenshot: Buffer;
 }
 
@@ -338,7 +339,7 @@ export class TinderBrowser {
       if (photo) photos.push(photo);
     }
 
-    return { fingerprint, name: info.name, age: info.age, text: info.text, photos, screenshot };
+    return { fingerprint, name: info.name, age: info.age, text: info.text, photos, photoCount: Math.max(info.photoCount, photos.length), screenshot };
   }
 
   private async openProfile(): Promise<void> {
@@ -420,6 +421,51 @@ export class TinderBrowser {
   }
 
   /**
+   * Before liking someone: look at every photo properly, the way a person does
+   * before committing. Long pauses, an occasional double-take, often a second
+   * read of the bio. Returns any photos not already captured, so the card can
+   * show the full set.
+   */
+  async lookAtAllPhotos(profile: ScrapedProfile, settings: Settings): Promise<Photo[]> {
+    if (!this.onRecs()) return [];
+    const page = this.p();
+    const known = new Set(profile.photos.map((p) => p.url));
+    const found = new Map<string, number>();
+    const total = Math.min(Math.max(profile.photoCount, 1), 9);
+
+    // Photos only advance in the collapsed card, so close the profile first.
+    await this.closeProfile();
+    await sleep(dwell(900));
+    let flips = 0;
+    for (let i = 0; i < total; i++) {
+      const info = await evalInPage(page, cardInfoInPage).catch(() => null);
+      if (!info || (profile.name && info.name && info.name !== profile.name)) break;
+      info.photoUrls.forEach((u, idx) => { if (!found.has(u)) found.set(u, found.size + idx); });
+      await sleep(dwell(2200)); // actually look at it
+      if (i < total - 1) { await this.nextPhoto(); flips++; }
+      if (flips >= 2 && chance(0.25)) {
+        await sleep(dwell(700));
+        await this.prevPhoto();
+        await sleep(dwell(1800));
+        await this.nextPhoto();
+      }
+    }
+    if (chance(0.6)) {
+      await sleep(dwell(600));
+      await this.openProfile();
+      await this.scrollBio();
+      await sleep(dwell(1500));
+    }
+    const extra: Photo[] = [];
+    for (const url of Array.from(found.keys()).filter((u) => !known.has(u)).slice(0, Math.max(0, 9 - profile.photos.length))) {
+      const photo = await this.fetchPhoto(url);
+      if (photo) extra.push(photo);
+    }
+    this.log(`Looked through all ${total} photos before liking${extra.length ? ` (${extra.length} more saved to the card)` : ""}.`);
+    return extra;
+  }
+
+  /**
    * After the model has decided: linger on profiles we like (people look longer
    * at someone they're about to swipe right on), flick past most passes.
    */
@@ -462,10 +508,11 @@ export class TinderBrowser {
   }
 
   /** Persist photos to disk for the dashboard; returns relative URLs. */
-  savePhotos(id: string, photos: Photo[]): string[] {
+  savePhotos(id: string, photos: Photo[], startIndex = 0): string[] {
     const dir = path.join(PHOTOS_DIR, id);
     fs.mkdirSync(dir, { recursive: true });
-    return photos.map((p, i) => {
+    return photos.map((p, k) => {
+      const i = startIndex + k;
       const ext = p.mediaType.split("/")[1];
       const file = path.join(dir, `${i}.${ext}`);
       fs.writeFileSync(file, p.data);
