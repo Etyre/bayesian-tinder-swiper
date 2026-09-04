@@ -282,12 +282,12 @@ export class TinderBrowser {
     // 1. First stage looks only at the photo already showing. More photos come later,
     //    and only for profiles that score high enough to be worth the look.
     const urlSet = new Set(info.photoUrls.slice(0, 1));
-    if (settings.humanize) await sleep(dwell(1200)); // glance at the first photo
+    if (settings.humanize) await sleep(dwell(500)); // glance at the first photo
 
     // 2. Open the profile and read it (text, badges, bio).
     await sleep(settings.humanize ? dwell(700) : 200);
     await this.openProfile();
-    if (settings.humanize && chance(0.7)) await this.scrollBio();
+    if (settings.humanize && chance(0.7)) await this.scrollBio("quick");
     const opened = await evalInPage(page, cardInfoInPage).catch(() => null);
     if (opened?.text) {
       info = { ...opened, name: opened.name ?? name, age: opened.age ?? age };
@@ -387,16 +387,16 @@ export class TinderBrowser {
   }
 
   /** Scroll the opened profile's details pane a bit, like reading the bio. */
-  private async scrollBio(): Promise<void> {
+  private async scrollBio(pace: "quick" | "normal" = "normal"): Promise<void> {
     const page = this.p();
     if (!this.onRecs()) return;
     await this.wander();
-    const downSteps = randInt(1, 4);
+    const downSteps = pace === "quick" ? randInt(1, 2) : randInt(1, 4);
     for (let i = 0; i < downSteps; i++) {
       await page.mouse.wheel(0, rand(120, 420)).catch(() => {});
-      await sleep(dwell(700));
+      await sleep(dwell(pace === "quick" ? 350 : 700));
     }
-    if (chance(0.5)) {
+    if (pace === "normal" && chance(0.5)) {
       // Glance back up at something.
       await page.mouse.wheel(0, -rand(100, 300)).catch(() => {});
       await sleep(dwell(500));
@@ -571,7 +571,7 @@ export class TinderBrowser {
     } else {
       await page.keyboard.press(key);
     }
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(direction === "pass" ? 600 : 1200);
     await this.dismissPopups();
     return direction;
   }

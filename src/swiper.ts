@@ -397,7 +397,7 @@ export class Swiper extends EventEmitter {
         this.emit("state", this.state);
         // Quick passes move on faster, but never on a fixed beat.
         await sleep(
-          decision.quickPass && dir === "pass" ? rand(settings.minDelayMs * 0.4, settings.minDelayMs * 1.5) : rand(settings.minDelayMs, settings.maxDelayMs),
+          decision.quickPass && dir === "pass" ? rand(500, 2000) : rand(settings.minDelayMs, settings.maxDelayMs),
         );
       } else {
         await this.browser.closeProfile();
