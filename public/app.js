@@ -12,9 +12,11 @@ let currentDecisionId = null;
 
 function fmtP(p) { return (p * 100).toFixed(0) + "%"; }
 const modelNames = { "claude-opus-5": "Claude Opus 5", "claude-sonnet-5": "Claude Sonnet 5", "claude-haiku-4-5": "Claude Haiku 4.5", "claude-opus-4-8": "Claude Opus 4.8", "claude-fable-5-1": "Claude Fable 5.1" };
+const hasEffort = (model) => !/haiku/i.test(model || "");
 function modelLabel(d) {
   if (!d.model) return "model not recorded";
-  return `${modelNames[d.model] ?? d.model}${d.effort ? ` (${d.effort} effort)` : ""}`;
+  const effort = hasEffort(d.model) && d.effort ? ` (${d.effort} effort)` : "";
+  return `${modelNames[d.model] ?? d.model}${effort}`;
 }
 // Likelihood ratio as an odds-style ratio: 12 -> "12:1", 0.7 -> "1:1.4", 1 -> "1:1".
 function fmtRatio(lr) {
@@ -30,6 +32,9 @@ function renderSettingsDerived() {
   const prior = parseFloat($("prior").value);
   $("priorVal").textContent = fmtP(prior);
   $("lrNeeded").textContent = ((1 - prior) / prior).toFixed(1);
+  const effortOk = hasEffort($("model").value);
+  $("effort").disabled = !effortOk;
+  $("effortHint").textContent = effortOk ? "" : "Haiku 4.5 has no effort control.";
   $("superLikeVal").textContent = fmtP(parseFloat($("superLikeThreshold").value));
   $("superLikeRow").hidden = $("superLikeEnabled").value !== "true";
   $("photoFlipVal").textContent = fmtP(parseFloat($("photoFlipChance").value));
@@ -391,5 +396,5 @@ $("startBtn").onclick = () => startRun("auto");
 $("reviewBtn").onclick = () => startRun("review");
 $("stopBtn").onclick = () => fetch("/api/stop", { method: "POST" });
 $("saveBtn").onclick = saveSettings;
-for (const f of ["threshold", "prior", "continuous", "photoFlipChance", "superLikeEnabled", "superLikeThreshold"]) $(f).addEventListener("input", renderSettingsDerived);
+for (const f of ["threshold", "prior", "continuous", "photoFlipChance", "superLikeEnabled", "superLikeThreshold", "model"]) $(f).addEventListener("input", renderSettingsDerived);
 init();

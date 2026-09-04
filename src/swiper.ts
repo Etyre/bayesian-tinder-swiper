@@ -296,7 +296,8 @@ export class Swiper extends EventEmitter {
           classification: c,
           usage: result.usage,
           model: settings.model,
-          effort: settings.effort,
+          // Haiku 4.5 has no effort control; don't record one for it.
+          ...(/haiku/i.test(settings.model) ? {} : { effort: settings.effort }),
           ...(result.refused ? { error: "Model declined to evaluate this profile." } : {}),
         };
       } catch (e) {
