@@ -98,9 +98,22 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
 /* review tab */
 #tab-review { display: block; }
 .review { max-width: 1400px; margin: 0 auto; }
-.filters { position: static; max-height: none; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 14px; align-items: end; margin-bottom: 16px; }
+.filters { position: static; max-height: none; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; gap: 14px; align-items: end; margin-bottom: 16px; }
 @media (max-width: 900px) { .filters { grid-template-columns: 1fr; } }
 .filters .row { margin: 0; }
 .filterSummary { grid-column: 1 / -1; color: var(--muted); font-size: 12px; }
 .reviewList .card { grid-template-columns: 200px 1fr; }
 .dot.waiting { background: #6ea8fe; }
+
+.verdict { flex-wrap: wrap; }
+.vbtns { display: flex; gap: 6px; }
+.vbtn.lower.on { background: rgba(255,92,122,.22); border-color: var(--danger); color: var(--danger); }
+.vbtn.right.on { background: rgba(139,147,167,.25); border-color: #aab2c5; color: var(--text); }
+.vbtn.higher.on { background: rgba(52,195,143,.22); border-color: var(--accent); color: var(--accent); }
+.userp { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); margin-left: auto; }
+.userp input { width: 120px; }
+.userp b { min-width: 34px; color: var(--text); }
+
+textarea { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: inherit; width: 100%; resize: vertical; }
+.card .note { margin-top: 8px; font-size: 12px; }
+.card .note.saved { border-color: var(--accent2); }

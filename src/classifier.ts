@@ -1,7 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
-import { buildSystemPrompt } from "./prompt.js";
+import { buildSystemPrompt, buildFeedbackPrompt } from "./prompt.js";
+import { feedbackExamples } from "./store.js";
 import type { Settings } from "./config.js";
 
 export const ClassificationSchema = z.object({
@@ -66,12 +67,30 @@ export async function classifyProfile(profile: ProfileInput, settings: Settings)
   // Haiku 4.5 predates adaptive thinking and the effort parameter; every other
   // offered model (Opus 5, Sonnet 5, Opus 4.8, Fable 5.1) takes both.
   const isHaiku = /haiku/i.test(settings.model);
+  // Stable prompt first (cached), then the user's guidance and graded examples, which change rarely.
+  const system: Anthropic.TextBlockParam[] = [
+    { type: "text", text: buildSystemPrompt(settings.prior), cache_control: { type: "ephemeral" } },
+  ];
+  const feedback = buildFeedbackPrompt(
+    settings.userGuidance,
+    feedbackExamples(40).map((d) => ({
+      name: d.name,
+      age: d.age,
+      modelProbability: d.classification!.probability,
+      verdict: d.verdict,
+      userProbability: d.userProbability,
+      note: d.note,
+      profileSnippet: (d.profileText ?? "").replace(/\s+/g, " ").slice(0, 220),
+    })),
+  );
+  if (feedback) system.push({ type: "text", text: feedback });
+
   const response = await client.messages.parse({
     model: settings.model,
     max_tokens: 4000,
     ...(isHaiku ? {} : { thinking: { type: "adaptive" as const } }),
     output_config: { ...(isHaiku ? {} : { effort: settings.effort }), format: zodOutputFormat(ClassificationSchema) },
-    system: [{ type: "text", text: buildSystemPrompt(settings.prior), cache_control: { type: "ephemeral" } }],
+    system,
     messages: [{ role: "user", content }],
   });
 

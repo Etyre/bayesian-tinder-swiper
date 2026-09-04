@@ -338,10 +338,16 @@ export class Swiper extends EventEmitter {
             this.state.swipesThisSession++;
             this.state.swiping = false;
             const recommendedLike = decision.action === "recommend_like";
-            const verdict = decision.classification ? ((choice === "like") === recommendedLike ? "agree" : "disagree") : null;
+            const verdict = !decision.classification
+              ? null
+              : (choice === "like") === recommendedLike
+                ? "about_right"
+                : choice === "like"
+                  ? "higher"
+                  : "lower";
             const updated = updateDecision(id, { userSwipe: choice, verdict });
             if (updated) this.emit("decision", updated);
-            this.log(`You ${choice === "like" ? "liked" : "passed on"} ${decision.name ?? "this profile"}${verdict ? ` (${verdict}s with the model)` : ""}.`);
+            this.log(`You ${choice === "like" ? "liked" : "passed on"} ${decision.name ?? "this profile"}${verdict ? ` (model's P should be ${verdict.replace("_", " ")})` : ""}.`);
             await sleep(rand(settings.minDelayMs, settings.maxDelayMs));
           } else if (choice === "browser") {
             const updated = updateDecision(id, { userSwipe: "browser" });

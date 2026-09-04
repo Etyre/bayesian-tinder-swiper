@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id);
-const fields = ["threshold", "prior", "batchMinMinutes", "batchMaxMinutes", "continuous", "breakMinMinutes", "breakMaxMinutes", "activeStartHour", "activeEndHour", "maxSwipesPerSession", "minDelayMs", "maxDelayMs", "humanize", "photoFlipChance", "maxPhotos", "model", "effort", "browserChannel", "headless"];
+const fields = ["threshold", "prior", "batchMinMinutes", "batchMaxMinutes", "continuous", "breakMinMinutes", "breakMaxMinutes", "activeStartHour", "activeEndHour", "maxSwipesPerSession", "minDelayMs", "maxDelayMs", "humanize", "photoFlipChance", "maxPhotos", "model", "effort", "browserChannel", "headless", "userGuidance"];
 const boolFields = new Set(["humanize", "continuous", "headless"]);
 let settings = {};
 let state = { status: "idle", awaiting: null, swiping: false };
@@ -76,9 +76,8 @@ function appendLog(entry) {
 }
 function setStats(s) {
   $("sSeen").textContent = s.seen; $("sLiked").textContent = s.liked; $("sRec").textContent = s.recommendedLike;
-  $("sAgree").textContent = s.agreed; $("sDisagree").textContent = s.disagreed;
-  const n = s.agreed + s.disagreed;
-  $("sAgreeRate").textContent = n ? Math.round((100 * s.agreed) / n) + "%" : "–";
+  $("sLower").textContent = s.lower; $("sRight").textContent = s.aboutRight; $("sHigher").textContent = s.higher;
+  $("sBias").textContent = s.meanBias === null ? "–" : (s.meanBias >= 0 ? "+" : "") + Math.round(s.meanBias * 100) + " pts";
 }
 async function refreshStats() { setStats((await (await fetch("/api/state")).json()).stats); }
 
@@ -188,15 +187,36 @@ function buildCard(d) {
     vlabel.textContent = "Your call:";
   }
   const vbtns = tpl.querySelectorAll(".vbtn");
-  const paint = (v) => vbtns.forEach((b) => b.classList.toggle("on", b.dataset.v === v));
-  paint(d.verdict ?? null);
+  const range = tpl.querySelector(".userpRange");
+  const rangeVal = tpl.querySelector(".userpVal");
+  const paint = (v, up) => {
+    vbtns.forEach((b) => b.classList.toggle("on", b.dataset.v === v));
+    if (typeof up === "number") { range.value = up; rangeVal.textContent = fmtP(up); }
+    else { range.value = d.classification?.probability ?? 0.1; rangeVal.textContent = "–"; }
+  };
+  paint(d.verdict ?? null, d.userProbability);
+  const send = async (verdict, userProbability) => {
+    const res = await fetch(`/api/decisions/${d.id}/verdict`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ verdict, userProbability }) });
+    if (res.ok) { const body = await res.json(); decisionsById.set(d.id, body.decision); paint(body.decision.verdict ?? null, body.decision.userProbability); setStats(body.stats); }
+  };
   vbtns.forEach((b) => {
-    b.onclick = async () => {
-      const next = b.classList.contains("on") ? null : b.dataset.v;
-      const res = await fetch(`/api/decisions/${d.id}/verdict`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ verdict: next }) });
-      if (res.ok) { const body = await res.json(); paint(body.decision.verdict ?? null); setStats(body.stats); }
-    };
+    b.onclick = () => send(b.classList.contains("on") ? null : b.dataset.v, b.classList.contains("on") ? null : undefined);
   });
+  range.oninput = () => (rangeVal.textContent = fmtP(parseFloat(range.value)));
+  range.onchange = () => {
+    const up = parseFloat(range.value);
+    const p = d.classification?.probability;
+    const verdict = p === undefined ? null : up > p + 0.1 ? "higher" : up < p - 0.1 ? "lower" : "about_right";
+    send(verdict, up);
+  };
+  const note = tpl.querySelector(".note");
+  note.value = d.note ?? "";
+  note.onblur = async () => {
+    if ((d.note ?? "") === note.value) return;
+    const res = await fetch(`/api/decisions/${d.id}/note`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note: note.value }) });
+    if (res.ok) { const body = await res.json(); decisionsById.set(d.id, body.decision); d.note = body.decision.note; note.classList.add("saved"); setTimeout(() => note.classList.remove("saved"), 1500); }
+  };
+  if (!d.classification) { tpl.querySelector(".verdict").remove(); note.remove(); }
   tpl.querySelector(".ptext").textContent = d.profileText || "(no profile text captured)";
   const u = d.usage ? ` · ${d.usage.input + d.usage.cacheRead} in / ${d.usage.output} out tokens` : "";
   tpl.querySelector(".meta").textContent = `${new Date(d.at).toLocaleString()} · ${d.mode} mode · threshold ${fmtP(d.threshold)}${u}`;
@@ -230,10 +250,12 @@ function renderReview() {
   $("reviewCount").textContent = all.length ? `(${all.length})` : "";
   const minP = parseFloat($("minP").value);
   $("minPVal").textContent = fmtP(minP);
-  const fAction = $("fAction").value, fSwipe = $("fSwipe").value, fSort = $("fSort").value;
+  const fAction = $("fAction").value, fSwipe = $("fSwipe").value, fSort = $("fSort").value, fVerdict = $("fVerdict").value;
   let rows = all.filter((d) => {
     const p = d.classification?.probability;
     if (minP > 0 && (p === undefined || p < minP)) return false;
+    if (fVerdict === "ungraded" && d.verdict) return false;
+    if (["higher", "lower", "about_right"].includes(fVerdict) && d.verdict !== fVerdict) return false;
     if (fAction === "like" && !/like$/.test(d.action)) return false;
     if (fAction === "pass" && !/pass$/.test(d.action)) return false;
     if (fAction === "skipped" && d.action !== "skipped") return false;
@@ -261,7 +283,7 @@ function renderReview() {
     list.appendChild(more);
   }
 }
-for (const id of ["minP", "fAction", "fSwipe", "fSort"]) $(id).addEventListener("input", renderReview);
+for (const id of ["minP", "fAction", "fSwipe", "fSort", "fVerdict"]) $(id).addEventListener("input", renderReview);
 
 // ---------- tabs ----------
 function showTab(name) {

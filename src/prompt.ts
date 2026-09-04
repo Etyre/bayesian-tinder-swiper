@@ -58,3 +58,40 @@ If the profile has nothing bearing on diet or animal ethics, stay close to the p
 ## Output
 Return a JSON object matching the schema you are given: parsed name/age (null if not found), the dietary badge string if one is shown (else null), a list of concrete evidence items each with direction ("for" | "against" | "neutral") and a rough likelihood ratio, a short reasoning paragraph that shows the update from prior to posterior, and finally "probability": your calibrated posterior in [0, 1] that she meets the criterion. Be honest and numerically consistent: if you list only weak evidence, the probability must stay low.`;
 }
+
+export interface FeedbackExample {
+  name: string | null;
+  age: number | null;
+  modelProbability: number;
+  verdict: "higher" | "about_right" | "lower" | null | undefined;
+  userProbability: number | null | undefined;
+  note: string | null | undefined;
+  profileSnippet: string;
+}
+
+/**
+ * Second system block: the user's standing guidance plus their recent grades and
+ * notes on past calls. Changes only when they grade something, so it sits after
+ * the cached main prompt.
+ */
+export function buildFeedbackPrompt(guidance: string, examples: FeedbackExample[]): string | null {
+  const parts: string[] = [];
+  if (guidance.trim()) {
+    parts.push(`## Standing guidance from the user\n${guidance.trim()}`);
+  }
+  if (examples.length) {
+    const lines = examples.map((e) => {
+      const who = `${e.name ?? "?"}${e.age ? `, ${e.age}` : ""}`;
+      const grade =
+        e.verdict === "higher" ? "should have been HIGHER" : e.verdict === "lower" ? "should have been LOWER" : e.verdict === "about_right" ? "about right" : "ungraded";
+      const yours = typeof e.userProbability === "number" ? `, user's estimate ${Math.round(e.userProbability * 100)}%` : "";
+      const note = e.note?.trim() ? `\n  Note: ${e.note.trim()}` : "";
+      const snip = e.profileSnippet ? `\n  Profile: ${e.profileSnippet}` : "";
+      return `- ${who}: model said ${Math.round(e.modelProbability * 100)}%, user says ${grade}${yours}.${note}${snip}`;
+    });
+    parts.push(
+      `## Calibration feedback on your recent calls\nThe user reviewed these past profiles. Use them to correct systematic errors in how you weigh evidence, not to memorize individuals. Where the user says HIGHER, you under-weighted something; LOWER, you over-weighted something. Notes explain their reasoning.\n${lines.join("\n")}`,
+    );
+  }
+  return parts.length ? parts.join("\n\n") : null;
+}

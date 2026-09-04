@@ -2,7 +2,7 @@ import "dotenv/config";
 import express from "express";
 import { PUBLIC_DIR, PHOTOS_DIR } from "./paths.js";
 import { loadSettings, updateSettings } from "./config.js";
-import { readDecisions, setVerdict, stats } from "./store.js";
+import { readDecisions, setVerdict, stats, updateDecision } from "./store.js";
 import { Swiper } from "./swiper.js";
 
 const app = express();
@@ -46,8 +46,10 @@ app.get("/api/decisions", (req, res) => {
 });
 app.post("/api/decisions/:id/verdict", (req, res) => {
   const v = req.body?.verdict;
-  if (v !== "agree" && v !== "disagree" && v !== null) return res.status(400).json({ error: "verdict must be agree, disagree, or null" });
-  const d = setVerdict(String(req.params.id), v);
+  const up = req.body?.userProbability;
+  if (!["higher", "about_right", "lower", null].includes(v)) return res.status(400).json({ error: "verdict must be higher, about_right, lower, or null" });
+  if (up !== undefined && up !== null && (typeof up !== "number" || up < 0 || up > 1)) return res.status(400).json({ error: "userProbability must be 0-1" });
+  const d = setVerdict(String(req.params.id), v, up);
   if (!d) return res.status(404).json({ error: "decision not found" });
   res.json({ decision: d, stats: stats() });
 });
@@ -57,6 +59,13 @@ app.post("/api/swipe", (req, res) => {
   const r = swiper.requestSwipe(String(decisionId), direction);
   if (!r.ok) return res.status(409).json({ error: r.error });
   res.json({ ok: true });
+});
+app.post("/api/decisions/:id/note", (req, res) => {
+  const note = req.body?.note;
+  if (typeof note !== "string" || note.length > 2000) return res.status(400).json({ error: "note must be a string up to 2000 chars" });
+  const d = updateDecision(String(req.params.id), { note });
+  if (!d) return res.status(404).json({ error: "decision not found" });
+  res.json({ decision: d });
 });
 app.post("/api/settings", (req, res) => {
   try {
