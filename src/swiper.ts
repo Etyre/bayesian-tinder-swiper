@@ -318,6 +318,12 @@ export class Swiper extends EventEmitter {
         if (settings.mode === "auto") {
           // A profile the model declined to evaluate gets a pass: you only want likes on qualified profiles.
           const dir = decision.action === "like" ? "like" : "pass";
+          if (!this.browser.onRecs()) {
+            // Someone clicked around in the window. Go back to the deck and re-evaluate whatever is on top.
+            this.log("Browser left the swipe deck before the swipe; going back and re-checking the card.");
+            await this.browser.ensureRecs();
+            continue;
+          }
           if (settings.humanize) await this.browser.secondLook(dir === "like", p);
           await this.browser.swipe(dir);
           this.state.swipesThisSession++;
