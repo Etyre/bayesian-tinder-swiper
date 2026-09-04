@@ -9,7 +9,7 @@ export const SettingsSchema = z.object({
   /** Swipe right when P(meets criteria) >= threshold. */
   threshold: z.number().min(0).max(1).default(0.5),
   /** Super like instead of like when P >= this. */
-  superLikeEnabled: z.boolean().default(false),
+  superLikeEnabled: z.boolean().default(true),
   superLikeThreshold: z.number().min(0).max(1).default(0.9),
   /** Prior probability (0-1) that a random woman in your pool meets the criteria.
    *  Drives the Bayesian reasoning in the prompt. */

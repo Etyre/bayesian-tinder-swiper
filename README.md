@@ -35,7 +35,7 @@ If you don't have Google Chrome installed, switch "Browser" to *Bundled Chromium
 | Setting | Default | Meaning |
 |---|---|---|
 | Like threshold | 0.50 | Swipe right when P(meets criteria) ≥ this |
-| Super like | off | When on, profiles at or above the super-like threshold (default 0.90) get a super like instead of a like. Falls back to a like when Tinder has none left |
+| Super like | on | Profiles at or above the super-like threshold (default 0.90) get a super like instead of a like. Falls back to a like when Tinder has none left |
 | Prior | 0.10 | Base rate of qualifying women in your pool. With a 10% prior the evidence needs a combined likelihood ratio of ~9× to reach 50% |
 | Batch length | 10–150 min | Random session length per batch |
 | After a batch | stop | Or take a random break (90–360 min) and start the next batch, only within active hours (9:00–23:00) |
