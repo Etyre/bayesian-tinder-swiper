@@ -174,193 +174,224 @@ export class Swiper extends EventEmitter {
     await this.loopPromise;
   }
 
+  /** Launch the browser (if needed), get to the deck, and wait for a login if there isn't one. */
+  private async openDeck(): Promise<boolean> {
+    const launchSettings = loadSettings();
+    if (this.browser.isOpen() && this.browser.headless !== launchSettings.headless) {
+      this.log("Window setting changed; relaunching the browser.");
+      await this.browser.close();
+    }
+    if (!this.browser.isOpen()) {
+      this.log(launchSettings.headless ? "Launching headless browser…" : "Launching browser…");
+      await this.browser.launch(launchSettings);
+    }
+    let loggedIn = await this.browser.gotoRecs();
+    if (!loggedIn && this.browser.headless) {
+      // You can't type an SMS code into a window you can't see.
+      this.log("Not logged in; reopening with a visible window so you can log in.");
+      await this.browser.close();
+      await this.browser.launch(launchSettings, { headless: false });
+      loggedIn = await this.browser.gotoRecs();
+    }
+    if (!loggedIn) {
+      this.setStatus("awaiting_login");
+      this.log("Not logged in. Log into Tinder in the browser window (phone number login is most reliable). Waiting up to 15 minutes…");
+      const ok = await this.browser.waitForLogin(15 * 60_000, () => this.stopRequested);
+      if (!ok) {
+        this.log(this.stopRequested ? "Stopped while waiting for login." : "Timed out waiting for login.");
+        return false;
+      }
+      this.log("Logged in.");
+    }
+    return true;
+  }
+
+  /** One batch: evaluate and swipe until the batch ends. Throws if the browser goes away. */
+  private async batchLoop(): Promise<void> {
+    let consecutiveFailures = 0;
+
+    while (!this.stopRequested) {
+      const settings = loadSettings();
+      if (this.state.batch && Date.now() >= new Date(this.state.batch.endsAt).getTime()) {
+        this.endBatch(`${this.state.batch.plannedMinutes}-minute batch finished (${this.state.batch.evaluated} profiles).`);
+        break;
+      }
+      if (settings.mode === "auto" && this.state.swipesThisSession >= settings.maxSwipesPerSession) {
+        this.endBatch(`reached the cap of ${settings.maxSwipesPerSession} swipes.`);
+        break;
+      }
+      if (!this.browser.isOpen()) throw new Error("Browser is not open");
+
+      if (!(await this.browser.ensureRecs())) {
+        this.endBatch("could not get back to the swipe deck; check the browser window.");
+        break;
+      }
+      await this.browser.dismissPopups();
+      if (await this.browser.isOutOfLikes()) {
+        this.endBatch("Tinder says you're out of likes.");
+        break;
+      }
+      if (await this.browser.isOutOfProfiles()) {
+        this.endBatch("Tinder has no more profiles to show right now.");
+        break;
+      }
+
+      const profile = await this.browser.scrapeCurrentProfile(settings);
+      if (!profile) {
+        consecutiveFailures++;
+        if (consecutiveFailures >= 5) {
+          const shot = await this.browser.saveErrorScreenshot("no-card");
+          this.endBatch(`no profile card found 5 times in a row${shot ? ` (screenshot: ${shot})` : ""}.`);
+          break;
+        }
+        this.log("No profile card found; retrying…");
+        await sleep(3000);
+        continue;
+      }
+      consecutiveFailures = 0;
+      if (this.state.batch) this.state.batch.evaluated++;
+      this.state.current = { name: profile.name, fingerprint: profile.fingerprint };
+      this.emit("state", this.state);
+      this.log(`Evaluating ${profile.name ?? "unknown"}${profile.age ? `, ${profile.age}` : ""} (${profile.photos.length} photos)…`);
+
+      const id = `${Date.now().toString(36)}-${profile.fingerprint}`;
+      const photoUrls = this.browser.savePhotos(id, profile.photos);
+
+      let decision: Decision;
+      try {
+        const result = await classifyProfile(
+          { text: profile.text, photos: profile.photos, screenshot: profile.screenshot.length ? profile.screenshot : undefined },
+          settings,
+        );
+        const c = result.classification;
+        const likes = !!c && c.probability >= settings.threshold;
+        let action: Decision["action"];
+        if (!c) action = "skipped";
+        else if (settings.mode === "auto") action = likes ? "like" : "pass";
+        else action = likes ? "recommend_like" : "recommend_pass";
+        decision = {
+          id,
+          at: new Date().toISOString(),
+          mode: settings.mode,
+          action,
+          threshold: settings.threshold,
+          name: c?.name ?? profile.name,
+          age: c?.age ?? profile.age,
+          photos: photoUrls,
+          profileText: cleanProfileText(profile.text),
+          classification: c,
+          usage: result.usage,
+          ...(result.refused ? { error: "Model declined to evaluate this profile." } : {}),
+        };
+      } catch (e) {
+        const msg = (e as Error).message;
+        this.log(`Classifier error: ${msg}`);
+        decision = {
+          id,
+          at: new Date().toISOString(),
+          mode: settings.mode,
+          action: "skipped",
+          threshold: settings.threshold,
+          name: profile.name,
+          age: profile.age,
+          photos: photoUrls,
+          profileText: cleanProfileText(profile.text),
+          classification: null,
+          error: msg,
+        };
+        if (/401|403|api key|authentication/i.test(msg)) {
+          appendDecision(decision);
+          this.emit("decision", decision);
+          this.state.lastError = msg;
+          this.setStatus("error");
+          return;
+        }
+      }
+
+      appendDecision(decision);
+      this.emit("decision", decision);
+      const p = decision.classification?.probability;
+      this.log(`${decision.name ?? "unknown"}: P=${p === undefined ? "n/a" : p.toFixed(2)} → ${decision.action.replace("_", " ")}`);
+
+      if (settings.mode === "auto") {
+        // A profile the model declined to evaluate gets a pass: you only want likes on qualified profiles.
+        const dir = decision.action === "like" ? "like" : "pass";
+        if (!this.browser.onRecs()) {
+          // Someone clicked around in the window. Go back to the deck and re-evaluate whatever is on top.
+          this.log("Browser left the swipe deck before the swipe; going back and re-checking the card.");
+          await this.browser.ensureRecs();
+          continue;
+        }
+        if (settings.humanize) await this.browser.secondLook(dir === "like", p);
+        await this.browser.swipe(dir);
+        this.state.swipesThisSession++;
+        this.emit("state", this.state);
+        await sleep(rand(settings.minDelayMs, settings.maxDelayMs));
+      } else {
+        await this.browser.closeProfile();
+        this.state.awaiting = { decisionId: id };
+        this.emit("state", this.state);
+        this.log("Review mode: choose Pass or Like in the dashboard (or swipe in the browser).");
+        const choice = await this.waitForChoice(profile.fingerprint);
+        this.state.awaiting = null;
+        if (choice === "like" || choice === "pass") {
+          this.state.swiping = true;
+          this.emit("state", this.state);
+          if (settings.humanize) await this.browser.secondLook(choice === "like", p);
+          await this.browser.swipe(choice);
+          this.state.swipesThisSession++;
+          this.state.swiping = false;
+          const recommendedLike = decision.action === "recommend_like";
+          const verdict = !decision.classification
+            ? null
+            : (choice === "like") === recommendedLike
+              ? "about_right"
+              : choice === "like"
+                ? "higher"
+                : "lower";
+          const updated = updateDecision(id, { userSwipe: choice, verdict });
+          if (updated) this.emit("decision", updated);
+          this.log(`You ${choice === "like" ? "liked" : "passed on"} ${decision.name ?? "this profile"}${verdict ? ` (model's P should be ${verdict.replace("_", " ")})` : ""}.`);
+          await sleep(rand(settings.minDelayMs, settings.maxDelayMs));
+        } else if (choice === "browser") {
+          const updated = updateDecision(id, { userSwipe: "browser" });
+          if (updated) this.emit("decision", updated);
+        }
+        this.pendingChoice = null;
+        this.emit("state", this.state);
+      }
+    }
+  }
+
   private async run(): Promise<void> {
     try {
       this.setStatus("launching");
-      const launchSettings = loadSettings();
-      if (this.browser.isOpen() && this.browser.headless !== launchSettings.headless) {
-        this.log("Window setting changed; relaunching the browser.");
-        await this.browser.close();
+      if (!(await this.openDeck())) {
+        this.setStatus("stopped");
+        return;
       }
-      if (!this.browser.isOpen()) {
-        this.log(launchSettings.headless ? "Launching headless browser…" : "Launching browser…");
-        await this.browser.launch(launchSettings);
-      }
-      let loggedIn = await this.browser.gotoRecs();
-      if (!loggedIn && this.browser.headless) {
-        // You can't type an SMS code into a window you can't see.
-        this.log("Not logged in; reopening with a visible window so you can log in.");
-        await this.browser.close();
-        await this.browser.launch(launchSettings, { headless: false });
-        loggedIn = await this.browser.gotoRecs();
-      }
-      if (!loggedIn) {
-        this.setStatus("awaiting_login");
-        this.log("Not logged in. Log into Tinder in the browser window (phone number login is most reliable). Waiting up to 15 minutes…");
-        const ok = await this.browser.waitForLogin(15 * 60_000, () => this.stopRequested);
-        if (!ok) {
-          this.log(this.stopRequested ? "Stopped while waiting for login." : "Timed out waiting for login.");
-          this.setStatus("stopped");
-          return;
-        }
-        this.log("Logged in.");
-      }
-
       this.setStatus("running");
-      let consecutiveFailures = 0;
 
+      // If the window gets closed mid-batch (by you, or a crash), reopen it and keep going.
+      let relaunches = 0;
       while (!this.stopRequested) {
-        const settings = loadSettings();
-        if (this.state.batch && Date.now() >= new Date(this.state.batch.endsAt).getTime()) {
-          this.endBatch(`${this.state.batch.plannedMinutes}-minute batch finished (${this.state.batch.evaluated} profiles).`);
-          break;
-        }
-        if (settings.mode === "auto" && this.state.swipesThisSession >= settings.maxSwipesPerSession) {
-          this.endBatch(`reached the cap of ${settings.maxSwipesPerSession} swipes.`);
-          break;
-        }
-        if (!this.browser.isOpen()) {
-          this.endBatch("browser window was closed.");
-          break;
-        }
-
-        if (!(await this.browser.ensureRecs())) {
-          this.endBatch("could not get back to the swipe deck; check the browser window.");
-          break;
-        }
-        await this.browser.dismissPopups();
-        if (await this.browser.isOutOfLikes()) {
-          this.endBatch("Tinder says you're out of likes.");
-          break;
-        }
-        if (await this.browser.isOutOfProfiles()) {
-          this.endBatch("Tinder has no more profiles to show right now.");
-          break;
-        }
-
-        const profile = await this.browser.scrapeCurrentProfile(settings);
-        if (!profile) {
-          consecutiveFailures++;
-          if (consecutiveFailures >= 5) {
-            const shot = await this.browser.saveErrorScreenshot("no-card");
-            this.endBatch(`no profile card found 5 times in a row${shot ? ` (screenshot: ${shot})` : ""}.`);
-            break;
-          }
-          this.log("No profile card found; retrying…");
-          await sleep(3000);
-          continue;
-        }
-        consecutiveFailures = 0;
-        if (this.state.batch) this.state.batch.evaluated++;
-        this.state.current = { name: profile.name, fingerprint: profile.fingerprint };
-        this.emit("state", this.state);
-        this.log(`Evaluating ${profile.name ?? "unknown"}${profile.age ? `, ${profile.age}` : ""} (${profile.photos.length} photos)…`);
-
-        const id = `${Date.now().toString(36)}-${profile.fingerprint}`;
-        const photoUrls = this.browser.savePhotos(id, profile.photos);
-
-        let decision: Decision;
         try {
-          const result = await classifyProfile(
-            { text: profile.text, photos: profile.photos, screenshot: profile.screenshot.length ? profile.screenshot : undefined },
-            settings,
-          );
-          const c = result.classification;
-          const likes = !!c && c.probability >= settings.threshold;
-          let action: Decision["action"];
-          if (!c) action = "skipped";
-          else if (settings.mode === "auto") action = likes ? "like" : "pass";
-          else action = likes ? "recommend_like" : "recommend_pass";
-          decision = {
-            id,
-            at: new Date().toISOString(),
-            mode: settings.mode,
-            action,
-            threshold: settings.threshold,
-            name: c?.name ?? profile.name,
-            age: c?.age ?? profile.age,
-            photos: photoUrls,
-            profileText: cleanProfileText(profile.text),
-            classification: c,
-            usage: result.usage,
-            ...(result.refused ? { error: "Model declined to evaluate this profile." } : {}),
-          };
+          await this.batchLoop();
+          break;
         } catch (e) {
           const msg = (e as Error).message;
-          this.log(`Classifier error: ${msg}`);
-          decision = {
-            id,
-            at: new Date().toISOString(),
-            mode: settings.mode,
-            action: "skipped",
-            threshold: settings.threshold,
-            name: profile.name,
-            age: profile.age,
-            photos: photoUrls,
-            profileText: cleanProfileText(profile.text),
-            classification: null,
-            error: msg,
-          };
-          if (/401|403|api key|authentication/i.test(msg)) {
-            appendDecision(decision);
-            this.emit("decision", decision);
-            this.state.lastError = msg;
-            this.setStatus("error");
+          const browserGone = /not open|has been closed|Target (page|context|browser)|browser has been closed|Session closed/i.test(msg);
+          if (!browserGone || relaunches >= 3) throw e;
+          relaunches++;
+          this.log("Browser window was closed; reopening it to continue the batch.");
+          await this.browser.close().catch(() => {});
+          await sleep(2000);
+          this.setStatus("launching");
+          if (!(await this.openDeck())) {
+            this.setStatus("stopped");
             return;
           }
-        }
-
-        appendDecision(decision);
-        this.emit("decision", decision);
-        const p = decision.classification?.probability;
-        this.log(`${decision.name ?? "unknown"}: P=${p === undefined ? "n/a" : p.toFixed(2)} → ${decision.action.replace("_", " ")}`);
-
-        if (settings.mode === "auto") {
-          // A profile the model declined to evaluate gets a pass: you only want likes on qualified profiles.
-          const dir = decision.action === "like" ? "like" : "pass";
-          if (!this.browser.onRecs()) {
-            // Someone clicked around in the window. Go back to the deck and re-evaluate whatever is on top.
-            this.log("Browser left the swipe deck before the swipe; going back and re-checking the card.");
-            await this.browser.ensureRecs();
-            continue;
-          }
-          if (settings.humanize) await this.browser.secondLook(dir === "like", p);
-          await this.browser.swipe(dir);
-          this.state.swipesThisSession++;
-          this.emit("state", this.state);
-          await sleep(rand(settings.minDelayMs, settings.maxDelayMs));
-        } else {
-          await this.browser.closeProfile();
-          this.state.awaiting = { decisionId: id };
-          this.emit("state", this.state);
-          this.log("Review mode: choose Pass or Like in the dashboard (or swipe in the browser).");
-          const choice = await this.waitForChoice(profile.fingerprint);
-          this.state.awaiting = null;
-          if (choice === "like" || choice === "pass") {
-            this.state.swiping = true;
-            this.emit("state", this.state);
-            if (settings.humanize) await this.browser.secondLook(choice === "like", p);
-            await this.browser.swipe(choice);
-            this.state.swipesThisSession++;
-            this.state.swiping = false;
-            const recommendedLike = decision.action === "recommend_like";
-            const verdict = !decision.classification
-              ? null
-              : (choice === "like") === recommendedLike
-                ? "about_right"
-                : choice === "like"
-                  ? "higher"
-                  : "lower";
-            const updated = updateDecision(id, { userSwipe: choice, verdict });
-            if (updated) this.emit("decision", updated);
-            this.log(`You ${choice === "like" ? "liked" : "passed on"} ${decision.name ?? "this profile"}${verdict ? ` (model's P should be ${verdict.replace("_", " ")})` : ""}.`);
-            await sleep(rand(settings.minDelayMs, settings.maxDelayMs));
-          } else if (choice === "browser") {
-            const updated = updateDecision(id, { userSwipe: "browser" });
-            if (updated) this.emit("decision", updated);
-          }
-          this.pendingChoice = null;
-          this.emit("state", this.state);
+          this.setStatus("running");
         }
       }
       if (this.stopRequested && !this.state.lastBatchEnd) this.state.lastBatchEnd = "stopped by you.";
