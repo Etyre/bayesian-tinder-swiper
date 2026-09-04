@@ -111,7 +111,7 @@ function fillClassification(root, d) {
     root.querySelector(".thresh").style.left = fmtP(d.threshold);
     root.querySelector(".pval").textContent = fmtP(c.probability);
     root.querySelector(".diet").textContent = c.dietary_badge ? `Dietary badge: ${c.dietary_badge}` : "No dietary badge shown";
-    root.querySelector(".model").textContent = `Evaluated by ${modelLabel(d)}`;
+    root.querySelector(".modelchip").textContent = modelLabel(d);
     const ul = root.querySelector(".evidence");
     ul.innerHTML = "";
     for (const e of c.evidence) {
