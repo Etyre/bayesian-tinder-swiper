@@ -268,15 +268,41 @@ export class Swiper extends EventEmitter {
       this.log(`Evaluating ${profile.name ?? "unknown"}${profile.age ? `, ${profile.age}` : ""} (${profile.photos.length} photos)…`);
 
       const id = `${Date.now().toString(36)}-${profile.fingerprint}`;
-      const photoUrls = this.browser.savePhotos(id, profile.photos);
+      let photoUrls = this.browser.savePhotos(id, profile.photos);
 
       let decision: Decision;
       try {
-        const result = await classifyProfile(
+        // Stage 1: judge on the bio and the photo already showing.
+        const first = await classifyProfile(
           { text: profile.text, photos: profile.photos, screenshot: profile.screenshot.length ? profile.screenshot : undefined },
           settings,
         );
-        const c = result.classification;
+        let c = first.classification;
+        const usage = { ...first.usage };
+        let bioOnlyProbability: number | undefined;
+        let quickPass = false;
+        if (c && c.probability < settings.quickPassBelow) {
+          quickPass = true;
+          this.log(`${c.name ?? profile.name ?? "unknown"}: bio-only P=${c.probability.toFixed(2)} → quick pass.`);
+        } else if (c && profile.photoCount > profile.photos.length) {
+          // Stage 2: worth a proper look. Go through every photo and re-score with the full set.
+          bioOnlyProbability = c.probability;
+          this.log(`${c.name ?? profile.name ?? "unknown"}: bio-only P=${c.probability.toFixed(2)}, looking at all the photos…`);
+          const extra = await this.browser.lookAtAllPhotos(profile, settings, { pace: "browse" });
+          if (extra.length) {
+            profile.photos.push(...extra);
+            photoUrls = [...photoUrls, ...this.browser.savePhotos(id, extra, photoUrls.length)];
+            const second = await classifyProfile(
+              { text: profile.text, photos: profile.photos, screenshot: profile.screenshot.length ? profile.screenshot : undefined },
+              settings,
+            );
+            if (second.classification) c = second.classification;
+            usage.input += second.usage.input;
+            usage.output += second.usage.output;
+            usage.cacheRead += second.usage.cacheRead;
+          }
+        }
+        const result = { usage, refused: first.refused };
         const likes = !!c && c.probability >= settings.threshold;
         const superLikes = likes && settings.superLikeEnabled && c!.probability >= settings.superLikeThreshold;
         let action: Decision["action"];
@@ -295,6 +321,8 @@ export class Swiper extends EventEmitter {
           profileText: cleanProfileText(profile.text),
           classification: c,
           usage: result.usage,
+          ...(bioOnlyProbability !== undefined ? { bioOnlyProbability } : {}),
+          ...(quickPass ? { quickPass } : {}),
           model: settings.model,
           // Haiku 4.5 has no effort control; don't record one for it.
           ...(/haiku/i.test(settings.model) ? {} : { effort: settings.effort }),
@@ -342,14 +370,10 @@ export class Swiper extends EventEmitter {
         }
         if (settings.humanize) {
           if (dir === "pass") {
-            await this.browser.secondLook(false, p);
+            if (!decision.quickPass) await this.browser.secondLook(false, p);
           } else {
-            const extra = await this.browser.lookAtAllPhotos(profile, settings);
-            if (extra.length) {
-              const more = this.browser.savePhotos(id, extra, profile.photos.length);
-              const updated = updateDecision(id, { photos: [...photoUrls, ...more] });
-              if (updated) this.emit("decision", updated);
-            }
+            // All photos were already seen in stage 2; linger a bit more before committing.
+            await this.browser.lingerBeforeLike(settings);
           }
         }
         const done = await this.browser.swipe(dir);
@@ -359,7 +383,10 @@ export class Swiper extends EventEmitter {
         }
         this.state.swipesThisSession++;
         this.emit("state", this.state);
-        await sleep(rand(settings.minDelayMs, settings.maxDelayMs));
+        // Quick passes move on faster, but never on a fixed beat.
+        await sleep(
+          decision.quickPass ? rand(settings.minDelayMs * 0.4, settings.minDelayMs * 1.5) : rand(settings.minDelayMs, settings.maxDelayMs),
+        );
       } else {
         await this.browser.closeProfile();
         this.state.awaiting = { decisionId: id };

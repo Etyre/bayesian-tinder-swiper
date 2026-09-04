@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id);
-const fields = ["threshold", "superLikeEnabled", "superLikeThreshold", "prior", "batchMinMinutes", "batchMaxMinutes", "continuous", "breakMinMinutes", "breakMaxMinutes", "activeStartHour", "activeEndHour", "maxSwipesPerSession", "minDelayMs", "maxDelayMs", "humanize", "photoFlipChance", "maxPhotos", "model", "effort", "browserChannel", "headless", "userGuidance"];
+const fields = ["threshold", "superLikeEnabled", "superLikeThreshold", "prior", "batchMinMinutes", "batchMaxMinutes", "continuous", "breakMinMinutes", "breakMaxMinutes", "activeStartHour", "activeEndHour", "maxSwipesPerSession", "minDelayMs", "maxDelayMs", "humanize", "quickPassBelow", "maxPhotos", "model", "effort", "browserChannel", "headless", "userGuidance"];
 const boolFields = new Set(["humanize", "continuous", "headless", "superLikeEnabled"]);
 let settings = {};
 let state = { status: "idle", awaiting: null, swiping: false };
@@ -37,7 +37,7 @@ function renderSettingsDerived() {
   $("effortHint").textContent = effortOk ? "" : "Haiku 4.5 has no effort control.";
   $("superLikeVal").textContent = fmtP(parseFloat($("superLikeThreshold").value));
   $("superLikeRow").hidden = $("superLikeEnabled").value !== "true";
-  $("photoFlipVal").textContent = fmtP(parseFloat($("photoFlipChance").value));
+  $("quickPassVal").textContent = fmtP(parseFloat($("quickPassBelow").value));
   $("continuousOpts").hidden = $("continuous").value !== "true";
 }
 function fillSettings(s) {
@@ -117,6 +117,10 @@ function fillClassification(root, d) {
     root.querySelector(".pval").textContent = fmtP(c.probability);
     root.querySelector(".diet").textContent = c.dietary_badge ? `Dietary badge: ${c.dietary_badge}` : "No dietary badge shown";
     root.querySelector(".modelchip").textContent = modelLabel(d);
+    const stage = root.querySelector(".stage");
+    if (d.quickPass) stage.textContent = "bio and first photo only · quick pass";
+    else if (typeof d.bioOnlyProbability === "number") stage.textContent = `bio-only ${fmtP(d.bioOnlyProbability)} → all photos ${fmtP(c.probability)}`;
+    else stage.textContent = "";
     const ul = root.querySelector(".evidence");
     ul.innerHTML = "";
     for (const e of c.evidence) {
@@ -396,5 +400,5 @@ $("startBtn").onclick = () => startRun("auto");
 $("reviewBtn").onclick = () => startRun("review");
 $("stopBtn").onclick = () => fetch("/api/stop", { method: "POST" });
 $("saveBtn").onclick = saveSettings;
-for (const f of ["threshold", "prior", "continuous", "photoFlipChance", "superLikeEnabled", "superLikeThreshold", "model"]) $(f).addEventListener("input", renderSettingsDerived);
+for (const f of ["threshold", "prior", "continuous", "quickPassBelow", "superLikeEnabled", "superLikeThreshold", "model"]) $(f).addEventListener("input", renderSettingsDerived);
 init();

@@ -32,9 +32,9 @@ export const SettingsSchema = z.object({
   /** Browse like a person: skim a random number of photos with variable dwell,
    *  occasionally flip back, scroll the bio, take a longer second look at profiles you like. */
   humanize: z.boolean().default(true),
-  /** How often to flip through all the photos before judging (0-1). Otherwise judge on the bio
-   *  plus whatever photo is already showing, like a person skimming. */
-  photoFlipChance: z.number().min(0).max(1).default(0.25),
+  /** Two-stage judging. First the bio and the photo already showing. If that scores below this,
+   *  pass right away without looking further. Otherwise look at every photo and re-score. */
+  quickPassBelow: z.number().min(0).max(1).default(0.15),
   /** How many photos to send to the classifier. */
   maxPhotos: z.number().int().min(0).max(9).default(5),
   model: z

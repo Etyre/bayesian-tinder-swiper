@@ -14,6 +14,10 @@ export interface Decision {
   classification: Classification | null;
   error?: string;
   usage?: { input: number; output: number; cacheRead: number };
+  /** Bio-and-first-photo score from the first stage, when a second full-photo stage followed. */
+  bioOnlyProbability?: number;
+  /** Passed on the first-stage score alone, without looking at more photos. */
+  quickPass?: boolean;
   /** Which model and effort level made the call. */
   model?: string;
   effort?: string;

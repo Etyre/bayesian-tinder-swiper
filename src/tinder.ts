@@ -279,24 +279,10 @@ export class TinderBrowser {
     const name = info.name;
     const age = info.age;
 
-    // 1. Flip through the photos in the collapsed card, merging URLs after each flip.
-    //    Tinder renders only the current photo and its neighbour, so we must look after every flip.
-    const flipThrough = settings.maxPhotos > 1 && chance(settings.photoFlipChance);
-    const wanted = flipThrough ? Math.min(Math.max(info.photoCount, 1), settings.maxPhotos) : 1;
-    const urlSet = new Set(info.photoUrls);
-    let flips = 0;
-    for (; flipThrough && flips < wanted + 2 && urlSet.size < wanted; flips++) {
-      await this.nextPhoto();
-      await page.waitForTimeout(settings.humanize ? dwell(900) : 300);
-      const again = await evalInPage(page, cardInfoInPage).catch(() => null);
-      if (!again || again.name !== name) break; // card changed under us
-      again.photoUrls.forEach((u) => urlSet.add(u));
-    }
-    if (settings.humanize && flips >= 2 && chance(0.2)) {
-      await sleep(dwell(600));
-      await this.prevPhoto();
-      await sleep(dwell(1200));
-    }
+    // 1. First stage looks only at the photo already showing. More photos come later,
+    //    and only for profiles that score high enough to be worth the look.
+    const urlSet = new Set(info.photoUrls.slice(0, 1));
+    if (settings.humanize) await sleep(dwell(1200)); // glance at the first photo
 
     // 2. Open the profile and read it (text, badges, bio).
     await sleep(settings.humanize ? dwell(700) : 200);
@@ -313,10 +299,7 @@ export class TinderBrowser {
       const m = info.text.match(/^(?:Block|Report) (.+)$/m);
       if (m) info.name = m[1].trim();
     }
-    if (!flipThrough) info.photoUrls = info.photoUrls.slice(0, 2); // just what was on screen
-    this.log(flipThrough
-      ? `Photos: flipped through, captured ${info.photoUrls.length} of ${Math.max(info.photoCount, wanted)}.`
-      : `Photos: didn't flip, judging on the bio and ${info.photoUrls.length} visible photo${info.photoUrls.length === 1 ? "" : "s"}.`);
+    info.photoUrls = info.photoUrls.slice(0, 1);
 
     // 3. Occasionally get distracted, like a person would.
     if (settings.humanize && chance(0.04)) {
@@ -426,12 +409,13 @@ export class TinderBrowser {
    * read of the bio. Returns any photos not already captured, so the card can
    * show the full set.
    */
-  async lookAtAllPhotos(profile: ScrapedProfile, settings: Settings): Promise<Photo[]> {
+  async lookAtAllPhotos(profile: ScrapedProfile, settings: Settings, opts: { pace?: "browse" | "slow"; rereadBio?: boolean } = {}): Promise<Photo[]> {
     if (!this.onRecs()) return [];
     const page = this.p();
     const known = new Set(profile.photos.map((p) => p.url));
     const found = new Map<string, number>();
-    const total = Math.min(Math.max(profile.photoCount, 1), 9);
+    const total = Math.min(Math.max(profile.photoCount, 1), settings.maxPhotos);
+    const base = opts.pace === "slow" ? 2200 : 1300;
 
     // Photos only advance in the collapsed card, so close the profile first.
     await this.closeProfile();
@@ -441,16 +425,16 @@ export class TinderBrowser {
       const info = await evalInPage(page, cardInfoInPage).catch(() => null);
       if (!info || (profile.name && info.name && info.name !== profile.name)) break;
       info.photoUrls.forEach((u, idx) => { if (!found.has(u)) found.set(u, found.size + idx); });
-      await sleep(dwell(2200)); // actually look at it
+      await sleep(settings.humanize ? dwell(base) : 300); // actually look at it
       if (i < total - 1) { await this.nextPhoto(); flips++; }
-      if (flips >= 2 && chance(0.25)) {
+      if (settings.humanize && flips >= 2 && chance(0.25)) {
         await sleep(dwell(700));
         await this.prevPhoto();
         await sleep(dwell(1800));
         await this.nextPhoto();
       }
     }
-    if (chance(0.6)) {
+    if (opts.rereadBio && settings.humanize && chance(0.6)) {
       await sleep(dwell(600));
       await this.openProfile();
       await this.scrollBio();
@@ -461,8 +445,25 @@ export class TinderBrowser {
       const photo = await this.fetchPhoto(url);
       if (photo) extra.push(photo);
     }
-    this.log(`Looked through all ${total} photos before liking${extra.length ? ` (${extra.length} more saved to the card)` : ""}.`);
+    this.log(`Looked through ${found.size} of ${profile.photoCount} photos.`);
     return extra;
+  }
+
+  /** Photos have all been seen already; before a like, take one more unhurried look. */
+  async lingerBeforeLike(settings: Settings): Promise<void> {
+    if (!this.onRecs() || !settings.humanize) return;
+    if (chance(0.6)) {
+      await this.openProfile();
+      await this.scrollBio();
+      await sleep(dwell(1500));
+    }
+    await this.closeProfile();
+    const back = randInt(1, 3);
+    for (let i = 0; i < back; i++) {
+      await this.prevPhoto();
+      await sleep(dwell(2000));
+    }
+    await sleep(dwell(1000));
   }
 
   /**
