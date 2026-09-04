@@ -178,6 +178,10 @@ export class Swiper extends EventEmitter {
     try {
       this.setStatus("launching");
       const launchSettings = loadSettings();
+      if (this.browser.isOpen() && this.browser.headless !== launchSettings.headless) {
+        this.log("Window setting changed; relaunching the browser.");
+        await this.browser.close();
+      }
       if (!this.browser.isOpen()) {
         this.log(launchSettings.headless ? "Launching headless browser…" : "Launching browser…");
         await this.browser.launch(launchSettings);
