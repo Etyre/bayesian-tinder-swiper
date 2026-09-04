@@ -10,7 +10,7 @@
 <header>
   <div class="brand">🌱 Tinder Swiper</div>
   <nav class="tabs">
-    <button class="tab on" data-tab="swipe">Swipe</button>
+    <button class="tab on" data-tab="swipe">Live</button>
     <button class="tab" data-tab="review">Review <span id="reviewCount" class="count"></span></button>
   </nav>
   <div class="status"><span id="statusDot" class="dot"></span><span id="statusText">idle</span><span id="batchText" class="batch"></span></div>
@@ -32,6 +32,15 @@
       <input id="threshold" type="range" min="0.2" max="0.95" step="0.05" />
     </label>
     <p class="hint">Swipe right when P(meets criteria) ≥ threshold.</p>
+
+    <label class="row"><span>Super like</span>
+      <select id="superLikeEnabled"><option value="false">Off</option><option value="true">On</option></select>
+    </label>
+    <label class="row" id="superLikeRow">
+      <span>Super like when P ≥ <b id="superLikeVal"></b></span>
+      <input id="superLikeThreshold" type="range" min="0.5" max="1" step="0.05" />
+    </label>
+    <p class="hint">Tinder rations super likes. When none are left, the app sends a regular like instead.</p>
 
     <label class="row">
       <span>Prior <b id="priorVal"></b></span>
@@ -94,9 +103,10 @@
     <p class="hint" id="saveMsg"></p>
 
     <h2>Stats</h2>
-    <div class="stats">
+    <div class="stats" style="grid-template-columns: repeat(5, 1fr)">
       <div><b id="sSeen">0</b><span>seen</span></div>
       <div><b id="sLiked">0</b><span>liked</span></div>
+      <div><b id="sSuper">0</b><span>super</span></div>
       <div><b id="sRec">0</b><span>recommended</span></div>
       <div><b id="sSession">0</b><span>this batch</span></div>
     </div>

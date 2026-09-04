@@ -1,6 +1,6 @@
 const $ = (id) => document.getElementById(id);
-const fields = ["threshold", "prior", "batchMinMinutes", "batchMaxMinutes", "continuous", "breakMinMinutes", "breakMaxMinutes", "activeStartHour", "activeEndHour", "maxSwipesPerSession", "minDelayMs", "maxDelayMs", "humanize", "photoFlipChance", "maxPhotos", "model", "effort", "browserChannel", "headless", "userGuidance"];
-const boolFields = new Set(["humanize", "continuous", "headless"]);
+const fields = ["threshold", "superLikeEnabled", "superLikeThreshold", "prior", "batchMinMinutes", "batchMaxMinutes", "continuous", "breakMinMinutes", "breakMaxMinutes", "activeStartHour", "activeEndHour", "maxSwipesPerSession", "minDelayMs", "maxDelayMs", "humanize", "photoFlipChance", "maxPhotos", "model", "effort", "browserChannel", "headless", "userGuidance"];
+const boolFields = new Set(["humanize", "continuous", "headless", "superLikeEnabled"]);
 let settings = {};
 let state = { status: "idle", awaiting: null, swiping: false };
 const decisionsById = new Map();
@@ -18,6 +18,8 @@ function renderSettingsDerived() {
   const prior = parseFloat($("prior").value);
   $("priorVal").textContent = fmtP(prior);
   $("lrNeeded").textContent = ((1 - prior) / prior).toFixed(1);
+  $("superLikeVal").textContent = fmtP(parseFloat($("superLikeThreshold").value));
+  $("superLikeRow").hidden = $("superLikeEnabled").value !== "true";
   $("photoFlipVal").textContent = fmtP(parseFloat($("photoFlipChance").value));
   $("continuousOpts").hidden = $("continuous").value !== "true";
 }
@@ -78,7 +80,7 @@ function appendLog(entry) {
   el.scrollTop = el.scrollHeight;
 }
 function setStats(s) {
-  $("sSeen").textContent = s.seen; $("sLiked").textContent = s.liked; $("sRec").textContent = s.recommendedLike;
+  $("sSeen").textContent = s.seen; $("sLiked").textContent = s.liked; $("sSuper").textContent = s.superLiked; $("sRec").textContent = s.recommendedLike;
   $("sLower").textContent = s.lower; $("sRight").textContent = s.aboutRight; $("sHigher").textContent = s.higher;
   $("sBias").textContent = s.meanBias === null ? "–" : (s.meanBias >= 0 ? "+" : "") + Math.round(s.meanBias * 100) + " pts";
 }
@@ -89,7 +91,7 @@ function fillClassification(root, d) {
   const c = d.classification;
   root.querySelector(".name").textContent = `${d.name ?? "Unknown"}${d.age ? `, ${d.age}` : ""}`;
   const badge = root.querySelector(".action");
-  const actionLabel = { like: "Liked", pass: "Passed", recommend_like: "Recommends like", recommend_pass: "Recommends pass", skipped: "Not scored" };
+  const actionLabel = { like: "Liked", superlike: "Super liked", pass: "Passed", recommend_like: "Recommends like", recommend_pass: "Recommends pass", skipped: "Not scored" };
   badge.textContent = actionLabel[d.action] ?? d.action.replace("_", " ");
   badge.className = "badge action " + d.action;
   if (c) {
@@ -364,5 +366,5 @@ $("startBtn").onclick = () => startRun("auto");
 $("reviewBtn").onclick = () => startRun("review");
 $("stopBtn").onclick = () => fetch("/api/stop", { method: "POST" });
 $("saveBtn").onclick = saveSettings;
-for (const f of ["threshold", "prior", "continuous", "photoFlipChance"]) $(f).addEventListener("input", renderSettingsDerived);
+for (const f of ["threshold", "prior", "continuous", "photoFlipChance", "superLikeEnabled", "superLikeThreshold"]) $(f).addEventListener("input", renderSettingsDerived);
 init();

@@ -265,9 +265,10 @@ export class Swiper extends EventEmitter {
         );
         const c = result.classification;
         const likes = !!c && c.probability >= settings.threshold;
+        const superLikes = likes && settings.superLikeEnabled && c!.probability >= settings.superLikeThreshold;
         let action: Decision["action"];
         if (!c) action = "skipped";
-        else if (settings.mode === "auto") action = likes ? "like" : "pass";
+        else if (settings.mode === "auto") action = superLikes ? "superlike" : likes ? "like" : "pass";
         else action = likes ? "recommend_like" : "recommend_pass";
         decision = {
           id,
@@ -311,19 +312,24 @@ export class Swiper extends EventEmitter {
       appendDecision(decision);
       this.emit("decision", decision);
       const p = decision.classification?.probability;
-      this.log(`${decision.name ?? "unknown"}: P=${p === undefined ? "n/a" : p.toFixed(2)} → ${decision.action.replace("_", " ")}`);
+      this.log(`${decision.name ?? "unknown"}: P=${p === undefined ? "n/a" : p.toFixed(2)} → ${decision.action === "superlike" ? "SUPER LIKE" : decision.action.replace("_", " ")}`);
 
       if (settings.mode === "auto") {
         // A profile the model declined to evaluate gets a pass: you only want likes on qualified profiles.
-        const dir = decision.action === "like" ? "like" : "pass";
+        const dir: "like" | "pass" | "superlike" =
+          decision.action === "superlike" ? "superlike" : decision.action === "like" ? "like" : "pass";
         if (!this.browser.onRecs()) {
           // Someone clicked around in the window. Go back to the deck and re-evaluate whatever is on top.
           this.log("Browser left the swipe deck before the swipe; going back and re-checking the card.");
           await this.browser.ensureRecs();
           continue;
         }
-        if (settings.humanize) await this.browser.secondLook(dir === "like", p);
-        await this.browser.swipe(dir);
+        if (settings.humanize) await this.browser.secondLook(dir !== "pass", p);
+        const done = await this.browser.swipe(dir);
+        if (done !== dir) {
+          const updated = updateDecision(id, { action: done });
+          if (updated) this.emit("decision", updated);
+        }
         this.state.swipesThisSession++;
         this.emit("state", this.state);
         await sleep(rand(settings.minDelayMs, settings.maxDelayMs));
