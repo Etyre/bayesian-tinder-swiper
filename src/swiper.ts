@@ -475,8 +475,13 @@ export class Swiper extends EventEmitter {
       }
       if (this.stopRequested && !this.state.lastBatchEnd) this.state.lastBatchEnd = "stopped by you.";
       if (!this.stopRequested) {
-        this.log("Closing the browser until the next batch.");
-        await this.browser.close();
+        if (this.browser.headless) {
+          this.log("Closing the browser until the next batch.");
+          await this.browser.close();
+        } else {
+          this.log("Closing the Tinder tab until the next batch.");
+          await this.browser.closeTab();
+        }
       }
       this.setStatus("stopped");
     } catch (e) {

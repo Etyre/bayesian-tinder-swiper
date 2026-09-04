@@ -121,6 +121,18 @@ export class TinderBrowser {
     });
   }
 
+  /** Close just the Tinder tab; the window (with the dashboard tab) stays open. */
+  async closeTab(): Promise<void> {
+    if (!this.page || this.page.isClosed()) return;
+    const remaining = this.ctx ? this.ctx.pages().filter((p) => p !== this.page && !p.isClosed()).length : 0;
+    if (remaining === 0) {
+      // Closing the only tab would close the window; keep one around.
+      await this.ctx?.newPage().then((p) => (this.headless ? undefined : p.goto(DASHBOARD_URL, { waitUntil: "domcontentloaded" }).catch(() => {}))).catch(() => {});
+    }
+    await this.page.close().catch(() => {});
+    this.page = null;
+  }
+
   /** Reopen the Tinder tab in the same window if it was closed. */
   async ensureTab(): Promise<void> {
     if (!this.ctx) throw new Error("Browser is not open");
