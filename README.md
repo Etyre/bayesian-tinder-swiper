@@ -5,7 +5,7 @@ A local web app that swipes Tinder for you, liking only women who are likely veg
 ## How it works
 
 1. Playwright opens Google Chrome with its own persistent profile in `data/browser-profile/`, with the dashboard in the first tab and Tinder in the second. You log into Tinder by hand the first time; the session is remembered.
-2. **Start batch (auto)** runs one swiping session of random length (10–50 minutes by default), like a person picking up the app for a while. For each card it flips through the photos, opens the profile, and sends the text (bio, Lifestyle badges such as Dietary Preference, interests, prompts) plus photos and a screenshot to Claude with a structured-output schema.
+2. **Start batch (auto)** runs one swiping session of random length (10–120 minutes by default), like a person picking up the app for a while. For each card it flips through the photos, opens the profile, and sends the text (bio, Lifestyle badges such as Dietary Preference, interests, prompts) plus photos and a screenshot to Claude with a structured-output schema.
 3. The model returns evidence items with rough likelihood ratios, a reasoning paragraph, and a calibrated probability. The app swipes right if the probability clears your threshold (default 50%), else left, with human-like pauses, photo flipping, and bio scrolling in between.
 4. The batch ends when its time is up, Tinder runs out of profiles or likes, or the swipe cap is hit. Optionally it takes a random break (default 1.5–6 hours, within active hours) and starts the next batch itself.
 5. Afterwards, the **Review** tab shows every profile it judged. Filter by "probability ≥ X", by the model's call, your swipe, or your grade. Grade each call as **Lower probability**, **No change**, or **Higher probability**, drag the "Your estimate" slider to give your own probability, and leave a note on what the model missed. Your notes and grades, plus the standing "Guidance for the model" box in settings, are included in every future prompt as calibration feedback, so the model learns your judgment over time. The sidebar tallies the grades and shows the model's average bias against your estimates, which tells you whether to move the threshold or prior.
@@ -36,7 +36,7 @@ If you don't have Google Chrome installed, switch "Browser" to *Bundled Chromium
 |---|---|---|
 | Like threshold | 0.50 | Swipe right when P(meets criteria) ≥ this |
 | Prior | 0.10 | Base rate of qualifying women in your pool. With a 10% prior the evidence needs a combined likelihood ratio of ~9× to reach 50% |
-| Batch length | 10–50 min | Random session length per batch |
+| Batch length | 10–120 min | Random session length per batch |
 | After a batch | stop | Or take a random break (90–360 min) and start the next batch, only within active hours (9:00–23:00) |
 | Max swipes / batch | 100 | Hard stop per batch |
 | Delay between swipes | 2.5–7 s | Random pause after each swipe |
