@@ -128,6 +128,11 @@ function fillClassification(root, d) {
       const lf = document.createElement("span"); lf.className = "badge likedfor"; lf.textContent = "🧠 intellectual exception";
       badge.after(lf);
     }
+    if (typeof c.intellectual_probability === "number") {
+      const ip = document.createElement("span"); ip.className = "intp"; ip.title = "Model's probability that you'd consider her eligible for the intellectual exception";
+      ip.textContent = `🧠 ${fmtP(c.intellectual_probability)}`;
+      root.querySelector(".model").appendChild(ip);
+    }
     root.querySelector(".diet").textContent = c.dietary_badge ? `Dietary badge: ${c.dietary_badge}` : "No dietary badge shown";
     root.querySelector(".modelchip").textContent = modelLabel(d);
     const stage = root.querySelector(".stage");
@@ -338,7 +343,8 @@ function renderReview() {
   const minP = parseFloat($("minP").value);
   $("minPVal").textContent = fmtP(minP);
   const fAction = $("fAction").value, fSwipe = $("fSwipe").value, fSort = $("fSort").value, fVerdict = $("fVerdict").value;
-  const scoreOf = (d) => d.classification?.probability;
+  const which = $("minPWhich").value;
+  const scoreOf = (d) => (which === "int" ? d.classification?.intellectual_probability : d.classification?.probability);
   let rows = all.filter((d) => {
     const p = scoreOf(d);
     if (minP > 0 && (p === undefined || p < minP)) return false;
@@ -383,7 +389,7 @@ function renderReview() {
   }
 }
 document.addEventListener("focusout", () => { if (reviewDirty) setTimeout(() => { if (!isEditing($("reviewList"))) renderReview(); }, 50); });
-for (const id of ["minP", "fAction", "fSwipe", "fSort", "fVerdict"]) $(id).addEventListener("input", () => { reviewLimit = REVIEW_PAGE; renderReview(); });
+for (const id of ["minP", "minPWhich", "fAction", "fSwipe", "fSort", "fVerdict"]) $(id).addEventListener("input", () => { reviewLimit = REVIEW_PAGE; renderReview(); });
 
 // ---------- tabs ----------
 function showTab(name) {

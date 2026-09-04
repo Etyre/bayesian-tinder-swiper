@@ -18,6 +18,7 @@ export const ClassificationSchema = z.object({
   evidence: z.array(EvidenceSchema),
   reasoning: z.string(),
   probability: z.number().min(0).max(1),
+  intellectual_probability: z.number().min(0).max(1),
   intellectual_exception: z.boolean(),
 });
 /** Same call without the reasoning paragraph: fewer output tokens, faster. */
@@ -27,6 +28,7 @@ export const TerseClassificationSchema = z.object({
   dietary_badge: z.string().nullable(),
   evidence: z.array(EvidenceSchema),
   probability: z.number().min(0).max(1),
+  intellectual_probability: z.number().min(0).max(1),
   intellectual_exception: z.boolean(),
 });
 export type Classification = z.infer<typeof ClassificationSchema>;
