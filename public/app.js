@@ -344,6 +344,7 @@ function renderReview() {
   $("minPVal").textContent = fmtP(minP);
   const fAction = $("fAction").value, fSwipe = $("fSwipe").value, fSort = $("fSort").value, fVerdict = $("fVerdict").value;
   const which = $("minPWhich").value;
+  document.body.classList.toggle("show-intp", which === "int"); // exception probability only shows while filtering on it
   const scoreOf = (d) => (which === "int" ? d.classification?.intellectual_probability : d.classification?.probability);
   let rows = all.filter((d) => {
     const p = scoreOf(d);

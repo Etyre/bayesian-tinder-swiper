@@ -140,4 +140,5 @@ select:disabled, input:disabled { opacity: .45; cursor: not-allowed; }
 select.inline { width: auto; display: inline-block; padding: 2px 6px; font-size: 12px; }
 .badge.likedfor { background: rgba(180,139,255,.18); color: #d9c6ff; text-transform: none; letter-spacing: 0; font-size: 11px; margin-left: 6px; }
 
-.card .intp { color: #d9c6ff; font-size: 12px; font-weight: 600; }
+.card .intp { display: none; color: #d9c6ff; font-size: 12px; font-weight: 600; }
+body.show-intp #tab-review .card .intp { display: inline; }
