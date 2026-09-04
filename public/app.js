@@ -11,6 +11,11 @@ const isEditing = (el) => el && el.contains(document.activeElement) && ["TEXTARE
 let currentDecisionId = null;
 
 function fmtP(p) { return (p * 100).toFixed(0) + "%"; }
+const modelNames = { "claude-opus-5": "Claude Opus 5", "claude-sonnet-5": "Claude Sonnet 5", "claude-haiku-4-5": "Claude Haiku 4.5", "claude-opus-4-8": "Claude Opus 4.8", "claude-fable-5-1": "Claude Fable 5.1" };
+function modelLabel(d) {
+  if (!d.model) return "model not recorded";
+  return `${modelNames[d.model] ?? d.model}${d.effort ? ` (${d.effort} effort)` : ""}`;
+}
 // Likelihood ratio as an odds-style ratio: 12 -> "12:1", 0.7 -> "1:1.4", 1 -> "1:1".
 function fmtRatio(lr) {
   if (!(lr > 0)) return "1:1";
@@ -106,6 +111,7 @@ function fillClassification(root, d) {
     root.querySelector(".thresh").style.left = fmtP(d.threshold);
     root.querySelector(".pval").textContent = fmtP(c.probability);
     root.querySelector(".diet").textContent = c.dietary_badge ? `Dietary badge: ${c.dietary_badge}` : "No dietary badge shown";
+    root.querySelector(".model").textContent = `Evaluated by ${modelLabel(d)}`;
     const ul = root.querySelector(".evidence");
     ul.innerHTML = "";
     for (const e of c.evidence) {
@@ -120,6 +126,7 @@ function fillClassification(root, d) {
     root.querySelector(".prob")?.remove();
     root.querySelector(".reasoning")?.closest("details")?.remove();
     root.querySelector(".diet").innerHTML = `<span class="error">${d.error ?? "Not classified"}</span>`;
+    root.querySelector(".model")?.remove();
   }
 }
 const thumbUrl = (url) => url.replace(/^\/photos\//, "/thumbs/");
@@ -254,9 +261,7 @@ function buildCard(d) {
   if (!d.classification) { tpl.querySelector(".verdict").remove(); note.remove(); }
   tpl.querySelector(".ptext").textContent = d.profileText || "(no profile text captured)";
   const u = d.usage ? ` · ${d.usage.input + d.usage.cacheRead} in / ${d.usage.output} out tokens` : "";
-  const modelNames = { "claude-opus-5": "Opus 5", "claude-sonnet-5": "Sonnet 5", "claude-haiku-4-5": "Haiku 4.5", "claude-opus-4-8": "Opus 4.8", "claude-fable-5-1": "Fable 5.1" };
-  const model = d.model ? `${modelNames[d.model] ?? d.model}${d.effort ? `, ${d.effort} effort` : ""}` : "model not recorded";
-  tpl.querySelector(".meta").textContent = `${new Date(d.at).toLocaleString()} · ${model} · ${d.mode} mode · threshold ${fmtP(d.threshold)}${u}`;
+  tpl.querySelector(".meta").textContent = `${new Date(d.at).toLocaleString()} · ${d.mode} mode · threshold ${fmtP(d.threshold)}${u}`;
   return tpl.querySelector("article");
 }
 
