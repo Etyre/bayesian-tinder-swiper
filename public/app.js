@@ -1,6 +1,6 @@
 const $ = (id) => document.getElementById(id);
-const fields = ["threshold", "prior", "batchMinMinutes", "batchMaxMinutes", "continuous", "breakMinMinutes", "breakMaxMinutes", "activeStartHour", "activeEndHour", "maxSwipesPerSession", "minDelayMs", "maxDelayMs", "humanize", "photoFlipChance", "maxPhotos", "model", "effort", "browserChannel"];
-const boolFields = new Set(["humanize", "continuous"]);
+const fields = ["threshold", "prior", "batchMinMinutes", "batchMaxMinutes", "continuous", "breakMinMinutes", "breakMaxMinutes", "activeStartHour", "activeEndHour", "maxSwipesPerSession", "minDelayMs", "maxDelayMs", "humanize", "photoFlipChance", "maxPhotos", "model", "effort", "browserChannel", "headless"];
+const boolFields = new Set(["humanize", "continuous", "headless"]);
 let settings = {};
 let state = { status: "idle", awaiting: null, swiping: false };
 const decisionsById = new Map();

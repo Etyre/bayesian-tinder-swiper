@@ -84,6 +84,10 @@
     <label class="row"><span>Browser</span>
       <select id="browserChannel"><option value="chrome">Installed Chrome</option><option value="chromium">Bundled Chromium</option></select>
     </label>
+    <label class="row"><span>Window</span>
+      <select id="headless"><option value="false">Visible (you can watch it swipe)</option><option value="true">Headless (no window)</option></select>
+    </label>
+    <p class="hint">Headless still opens a visible window when you need to log in. A real window is slightly harder for Tinder to fingerprint as a bot.</p>
     <button id="saveBtn" class="primary wide">Save settings</button>
     <p class="hint" id="saveMsg"></p>
 

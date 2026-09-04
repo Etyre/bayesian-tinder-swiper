@@ -177,11 +177,19 @@ export class Swiper extends EventEmitter {
   private async run(): Promise<void> {
     try {
       this.setStatus("launching");
+      const launchSettings = loadSettings();
       if (!this.browser.isOpen()) {
-        this.log("Launching browser…");
-        await this.browser.launch(loadSettings());
+        this.log(launchSettings.headless ? "Launching headless browser…" : "Launching browser…");
+        await this.browser.launch(launchSettings);
       }
-      const loggedIn = await this.browser.gotoRecs();
+      let loggedIn = await this.browser.gotoRecs();
+      if (!loggedIn && this.browser.headless) {
+        // You can't type an SMS code into a window you can't see.
+        this.log("Not logged in; reopening with a visible window so you can log in.");
+        await this.browser.close();
+        await this.browser.launch(launchSettings, { headless: false });
+        loggedIn = await this.browser.gotoRecs();
+      }
       if (!loggedIn) {
         this.setStatus("awaiting_login");
         this.log("Not logged in. Log into Tinder in the browser window (phone number login is most reliable). Waiting up to 15 minutes…");

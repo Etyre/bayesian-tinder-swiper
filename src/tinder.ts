@@ -48,9 +48,12 @@ export class TinderBrowser {
   private page: Page | null = null;
   constructor(private log: (msg: string) => void) {}
 
-  async launch(settings: Settings): Promise<void> {
+  headless = false;
+
+  async launch(settings: Settings, opts: { headless?: boolean } = {}): Promise<void> {
+    this.headless = opts.headless ?? settings.headless;
     const common = {
-      headless: false,
+      headless: this.headless,
       viewport: { width: 1200, height: 900 },
       locale: "en-US",
       args: ["--disable-blink-features=AutomationControlled"],

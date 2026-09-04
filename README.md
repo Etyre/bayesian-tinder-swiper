@@ -43,6 +43,7 @@ If you don't have Google Chrome installed, switch "Browser" to *Bundled Chromium
 | Browse like a human | on | Flips photos with uneven pauses, occasional double-take, scrolls the bio, lingers on profiles it's about to like, rare 12–40 s pause |
 | Flip through photos | 25% | How often it flips through all photos before judging. Otherwise it judges on the bio plus the photo already showing |
 | Max photos sent to model | 5 | Cap when it does flip through |
+| Window | visible | Headless runs without a window. Login always gets a visible window; a real window is slightly harder to fingerprint as a bot |
 | Model / effort | claude-opus-5 / medium | Dropdown: Opus 5, Sonnet 5, Haiku 4.5, Opus 4.8, Fable 5.1. Raise effort for harder judgment calls, lower for cost |
 
 ## What counts as evidence
