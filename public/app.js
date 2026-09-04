@@ -191,11 +191,9 @@ function buildCard(d) {
   }
   const vbtns = tpl.querySelectorAll(".vbtn");
   const range = tpl.querySelector(".userpRange");
-  const rangeVal = tpl.querySelector(".userpVal");
   const paint = (v, up) => {
     vbtns.forEach((b) => b.classList.toggle("on", b.dataset.v === v));
-    if (typeof up === "number") { range.value = up; rangeVal.textContent = fmtP(up); }
-    else { range.value = d.classification?.probability ?? 0.1; rangeVal.textContent = "–"; }
+    range.value = typeof up === "number" ? Math.round(up * 100) : "";
   };
   paint(d.verdict ?? null, d.userProbability);
   const send = async (verdict, userProbability) => {
@@ -210,13 +208,14 @@ function buildCard(d) {
   vbtns.forEach((b) => {
     b.onclick = () => send(b.classList.contains("on") ? null : b.dataset.v, b.classList.contains("on") ? null : undefined);
   });
-  range.oninput = () => (rangeVal.textContent = fmtP(parseFloat(range.value)));
   range.onchange = () => {
-    const up = parseFloat(range.value);
+    if (range.value === "") { send(null, null); return; }
+    const up = Math.min(100, Math.max(0, parseFloat(range.value))) / 100;
     const p = d.classification?.probability;
     const verdict = p === undefined ? null : up > p + 0.1 ? "higher" : up < p - 0.1 ? "lower" : "about_right";
     send(verdict, up);
   };
+  range.onkeydown = (e) => { if (e.key === "Enter") range.blur(); };
   const note = tpl.querySelector(".note");
   note.value = noteDrafts.get(d.id) ?? d.note ?? "";
   let noteTimer = null;
