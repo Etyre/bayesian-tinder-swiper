@@ -461,8 +461,13 @@ export class Swiper extends EventEmitter {
           const msg = (e as Error).message;
           const browserGone = /not open|has been closed|Target (page|context|browser)|browser has been closed|Session closed/i.test(msg);
           if (!browserGone || relaunches >= 3) throw e;
+          if (!this.browser.isOpen()) {
+            // The whole window is gone: you closed it. Take that as "stop".
+            this.endBatch("browser window was closed.");
+            break;
+          }
           relaunches++;
-          this.log(`Browser went away (${msg.split("\n")[0].slice(0, 120)}); reopening it to continue the batch.`);
+          this.log(`Browser page went away (${msg.split("\n")[0].slice(0, 120)}); reopening it to continue the batch.`);
           await this.browser.close().catch(() => {});
           await sleep(2000);
           this.setStatus("launching");
