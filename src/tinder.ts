@@ -1,4 +1,5 @@
 import { chromium, type BrowserContext, type Page } from "playwright";
+import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -50,6 +51,31 @@ export class TinderBrowser {
 
   headless = false;
 
+  /**
+   * A crashed or half-closed run can leave a Chrome process (ours) holding the
+   * profile directory, which makes the next launch fail with "profile already in
+   * use". Kill any such orphan and clear Chrome's lock files.
+   */
+  private clearStaleProfileLock(): void {
+    try {
+      const pids = execSync(`pgrep -f "user-data-dir=${PROFILE_DIR}" || true`, { encoding: "utf8" }).trim().split("\n").filter(Boolean);
+      if (pids.length) {
+        this.log(`Closing ${pids.length} leftover browser process${pids.length > 1 ? "es" : ""} holding the profile.`);
+        execSync(`kill ${pids.join(" ")} 2>/dev/null || true`);
+        execSync("sleep 1.5");
+      }
+    } catch {
+      /* best effort */
+    }
+    for (const f of ["SingletonLock", "SingletonSocket", "SingletonCookie"]) {
+      try {
+        fs.rmSync(path.join(PROFILE_DIR, f), { force: true });
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
   async launch(settings: Settings, opts: { headless?: boolean } = {}): Promise<void> {
     this.headless = opts.headless ?? settings.headless;
     const common = {
@@ -59,14 +85,26 @@ export class TinderBrowser {
       args: ["--disable-blink-features=AutomationControlled"],
       ignoreDefaultArgs: ["--enable-automation"],
     };
+    const channel = settings.browserChannel === "chrome" ? "chrome" : undefined;
+    this.clearStaleProfileLock();
     try {
-      this.ctx = await chromium.launchPersistentContext(PROFILE_DIR, {
-        ...common,
-        channel: settings.browserChannel === "chrome" ? "chrome" : undefined,
-      });
-    } catch (e) {
-      this.log(`Could not launch ${settings.browserChannel} (${(e as Error).message.split("\n")[0]}); falling back to bundled Chromium.`);
-      this.ctx = await chromium.launchPersistentContext(PROFILE_DIR, common);
+      this.ctx = await chromium.launchPersistentContext(PROFILE_DIR, { ...common, channel });
+    } catch (e1) {
+      const first = (e1 as Error).message.split("\n")[0];
+      if (/existing browser session|already in use/i.test(first)) {
+        // Something still holds the profile; clear it once more and retry the same browser.
+        this.log("Profile was still locked; clearing it and retrying.");
+        this.clearStaleProfileLock();
+        try {
+          this.ctx = await chromium.launchPersistentContext(PROFILE_DIR, { ...common, channel });
+        } catch (e2) {
+          this.log(`Could not launch ${settings.browserChannel} (${(e2 as Error).message.split("\n")[0]}); falling back to bundled Chromium.`);
+          this.ctx = await this.launchBundledChromium(common);
+        }
+      } else {
+        this.log(`Could not launch ${settings.browserChannel} (${first}); falling back to bundled Chromium.`);
+        this.ctx = await this.launchBundledChromium(common);
+      }
     }
     await this.ctx.addInitScript(() => {
       Object.defineProperty(navigator, "webdriver", { get: () => undefined });
@@ -78,18 +116,32 @@ export class TinderBrowser {
     });
   }
 
+  private async launchBundledChromium(common: Parameters<typeof chromium.launchPersistentContext>[1]): Promise<BrowserContext> {
+    try {
+      return await chromium.launchPersistentContext(PROFILE_DIR, common);
+    } catch (e) {
+      const msg = (e as Error).message;
+      if (/Executable doesn't exist/i.test(msg)) {
+        throw new Error("Bundled Chromium isn't installed. Run `npx playwright install chromium` in the project folder, or make sure Google Chrome is installed and not holding the profile.");
+      }
+      throw e;
+    }
+  }
+
   isOpen(): boolean {
     return !!this.page && !this.page.isClosed();
   }
 
   async close(): Promise<void> {
     try {
-      await this.ctx?.close();
+      await Promise.race([this.ctx?.close(), new Promise((r) => setTimeout(r, 8000))]);
     } catch {
       /* already closed */
     }
     this.ctx = null;
     this.page = null;
+    // Make sure no process is left holding the profile, or the next launch fails.
+    this.clearStaleProfileLock();
   }
 
   private p(): Page {
