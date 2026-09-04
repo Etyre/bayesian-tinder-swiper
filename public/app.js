@@ -18,12 +18,19 @@ function modelLabel(d) {
   const effort = hasEffort(d.model) && d.effort ? ` (${d.effort} effort)` : "";
   return `${modelNames[d.model] ?? d.model}${effort}`;
 }
-// Likelihood ratio as an odds-style ratio: 12 -> "12:1", 0.7 -> "1:1.4", 1 -> "1:1".
+// Likelihood ratio as a whole-number ratio: 12 -> "12:1", 1.5 -> "3:2", 0.7 -> "7:10", 1 -> "1:1".
+// Picks the closest fraction with both sides at most 20.
 function fmtRatio(lr) {
   if (!(lr > 0)) return "1:1";
-  const sig = (x) => (x >= 10 ? Math.round(x) : x >= 3 ? Math.round(x * 2) / 2 : Math.round(x * 10) / 10);
-  if (lr >= 1) return `${sig(lr)}:1`;
-  return `1:${sig(1 / lr)}`;
+  let best = [1, 1], bestErr = Infinity;
+  for (let den = 1; den <= 20; den++) {
+    const num = Math.max(1, Math.round(lr * den));
+    if (num > 20 && den > 1) continue;
+    const err = Math.abs(num / den - lr) / lr;
+    if (err < bestErr - 1e-9) { bestErr = err; best = [num, den]; }
+    if (err < 0.02) break; // close enough; prefer the simplest fraction
+  }
+  return `${best[0]}:${best[1]}`;
 }
 
 // ---------- settings ----------
