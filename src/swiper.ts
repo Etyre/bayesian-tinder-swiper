@@ -273,11 +273,9 @@ export class Swiper extends EventEmitter {
 
       let decision: Decision;
       try {
-        // Stage 1: judge on the bio and the photo already showing.
-        const first = await classifyProfile(
-          { text: profile.text, photos: profile.photos, screenshot: profile.screenshot.length ? profile.screenshot : undefined },
-          settings,
-        );
+        // Stage 1: judge on the bio and the photo already showing. No screenshot here: the
+        // scraped text already carries the badges, and the image only adds tokens and latency.
+        const first = await classifyProfile({ text: profile.text, photos: profile.photos }, settings);
         let c = first.classification;
         const usage = { ...first.usage };
         let bioOnlyProbability: number | undefined;
