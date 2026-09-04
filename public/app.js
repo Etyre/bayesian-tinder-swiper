@@ -89,7 +89,8 @@ function fillClassification(root, d) {
   const c = d.classification;
   root.querySelector(".name").textContent = `${d.name ?? "Unknown"}${d.age ? `, ${d.age}` : ""}`;
   const badge = root.querySelector(".action");
-  badge.textContent = d.action.replace("_", " ");
+  const actionLabel = { like: "Liked", pass: "Passed", recommend_like: "Recommends like", recommend_pass: "Recommends pass", skipped: "Not scored" };
+  badge.textContent = actionLabel[d.action] ?? d.action.replace("_", " ");
   badge.className = "badge action " + d.action;
   if (c) {
     root.querySelector(".fill").style.width = fmtP(c.probability);
