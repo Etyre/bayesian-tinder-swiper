@@ -11,6 +11,13 @@ const isEditing = (el) => el && el.contains(document.activeElement) && ["TEXTARE
 let currentDecisionId = null;
 
 function fmtP(p) { return (p * 100).toFixed(0) + "%"; }
+// Likelihood ratio as an odds-style ratio: 12 -> "12:1", 0.7 -> "1:1.4", 1 -> "1:1".
+function fmtRatio(lr) {
+  if (!(lr > 0)) return "1:1";
+  const sig = (x) => (x >= 10 ? Math.round(x) : x >= 3 ? Math.round(x * 2) / 2 : Math.round(x * 10) / 10);
+  if (lr >= 1) return `${sig(lr)}:1`;
+  return `1:${sig(1 / lr)}`;
+}
 
 // ---------- settings ----------
 function renderSettingsDerived() {
@@ -105,7 +112,7 @@ function fillClassification(root, d) {
       const li = document.createElement("li");
       li.className = e.direction;
       li.textContent = e.observation;
-      const lr = document.createElement("span"); lr.className = "lr"; lr.textContent = `LR ${e.likelihood_ratio}×`; li.appendChild(lr);
+      const lr = document.createElement("span"); lr.className = "lr"; lr.textContent = `LR ${fmtRatio(e.likelihood_ratio)}`; li.appendChild(lr);
       ul.appendChild(li);
     }
     root.querySelector(".reasoning").textContent = c.reasoning;
