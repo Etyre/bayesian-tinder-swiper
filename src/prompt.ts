@@ -49,7 +49,10 @@ Treat 3+ weak cues together as at most ~2-3x total, not 8x.
 - Restaurant photos with meat-heavy cuisines are mild negatives (LR ~0.5-0.7), not decisive, since she could be ordering the veggie option.
 
 ### No information
-If the profile has nothing bearing on diet or animal ethics, stay close to the prior (roughly 0.06-0.15). Do not round it up because she seems nice, attractive, healthy, or thin. Attractiveness is irrelevant to this task.
+If the profile has nothing bearing on diet or animal ethics, the posterior IS the prior (${priorPct}%). Do not nudge it up or down because she seems nice, attractive, healthy, thin, or "not the type": if you believe something shifts the odds, list it as evidence with a ratio other than 1. Attractiveness is irrelevant to this task.
+
+### Numerical consistency
+Your probability must agree with your evidence: posterior odds = prior odds × the product of the listed likelihood ratios, after discounting correlated weak cues. Evidence listed at 1:1 moves nothing. If you want the number lower or higher, the reason must appear as an evidence item with a ratio that says so.
 
 ### Photo caveats
 - Do not infer diet from body type, skin, or how "healthy" she looks. That evidence has LR ≈ 1.

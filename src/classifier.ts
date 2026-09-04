@@ -126,6 +126,9 @@ export async function classifyProfile(profile: ProfileInput, settings: Settings)
   if (classification) {
     // The exception is off by default; only positive evidence for it is meaningful.
     classification.evidence = classification.evidence.filter((e) => e.criterion !== "intellectual" || e.direction === "for");
+    // If every diet ratio is 1:1 the model has said "no evidence", so the posterior is the prior by definition.
+    const diet = classification.evidence.filter((e) => e.criterion === "veg");
+    if (diet.every((e) => Math.abs(e.likelihood_ratio - 1) < 0.005)) classification.probability = settings.prior;
     // The exception is exactly "probability at or above the threshold", whatever the model's own flag said.
     classification.intellectual_exception = classification.intellectual_probability >= EXCEPTION_THRESHOLD;
   }
