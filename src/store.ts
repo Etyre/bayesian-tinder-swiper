@@ -10,8 +10,6 @@ export interface Decision {
   threshold: number;
   /** Super-like threshold in force at the time, when super likes were enabled. */
   superLikeThreshold?: number;
-  /** Intellectual-criterion threshold in force at the time, when that criterion was enabled. */
-  intellectualThreshold?: number;
   /** Which criterion triggered a like: "veg", "intellectual", or "both". */
   likedFor?: "veg" | "intellectual" | "both";
   /** Flagged by you as a reference example of the intellectual criterion; fed into the prompt. */

@@ -23,21 +23,22 @@ const shortlist = uniq
   .slice(0, max);
 
 console.log(`${uniq.length} unique profiles with text; ${shortlist.length} pass the keyword screen. Scoring with ${settings.model}…`);
-const results: { name: string; age: number | null; pInt: number; pVeg: number; hits: number; id: string; top: string }[] = [];
+const results: { name: string; age: number | null; exception: boolean; pVeg: number; hits: number; id: string; top: string }[] = [];
 for (const { d, hits } of shortlist) {
   try {
     const r = await classifyProfile({ text: d.profileText!, photos: [] }, settings);
     const c = r.classification;
     if (!c) continue;
     const top = c.evidence.filter((e) => e.criterion === "intellectual" && e.direction === "for").map((e) => e.observation).slice(0, 2).join("; ");
-    results.push({ name: d.name ?? "?", age: d.age, pInt: c.intellectual_probability, pVeg: c.probability, hits, id: d.id, top });
+    results.push({ name: d.name ?? "?", age: d.age, exception: c.intellectual_exception, pVeg: c.probability, hits, id: d.id, top });
     process.stdout.write(".");
   } catch (e) {
     process.stdout.write("x");
   }
 }
 console.log("\n");
-results.sort((a, b) => b.pInt - a.pInt);
-for (const r of results.slice(0, 15)) {
-  console.log(`${(r.pInt * 100).toFixed(0).padStart(3)}%  ${r.name}, ${r.age ?? "?"}  (veg ${(r.pVeg * 100).toFixed(0)}%)  ${r.top}`);
-}
+const raised = results.filter((r) => r.exception);
+console.log(`Exception raised for ${raised.length} of ${results.length} scored:`);
+for (const r of raised) console.log(`  🧠 ${r.name}, ${r.age ?? "?"}  (veg ${(r.pVeg * 100).toFixed(0)}%)  ${r.top}`);
+console.log("\nNear misses (evidence for, but no exception):");
+for (const r of results.filter((r) => !r.exception && r.top).slice(0, 8)) console.log(`     ${r.name}, ${r.age ?? "?"}  ${r.top}`);

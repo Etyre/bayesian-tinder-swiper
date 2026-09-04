@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id);
-const fields = ["threshold", "superLikeEnabled", "superLikeThreshold", "intellectualEnabled", "intellectualThreshold", "prior", "batchMinMinutes", "batchMaxMinutes", "continuous", "breakMinMinutes", "breakMaxMinutes", "activeStartHour", "activeEndHour", "maxSwipesPerSession", "minDelayMs", "maxDelayMs", "humanize", "quickPassBelow", "maxPhotos", "model", "effort", "browserChannel", "headless", "captureReasoning", "userGuidance"];
+const fields = ["threshold", "superLikeEnabled", "superLikeThreshold", "intellectualEnabled", "prior", "batchMinMinutes", "batchMaxMinutes", "continuous", "breakMinMinutes", "breakMaxMinutes", "activeStartHour", "activeEndHour", "maxSwipesPerSession", "minDelayMs", "maxDelayMs", "humanize", "quickPassBelow", "maxPhotos", "model", "effort", "browserChannel", "headless", "captureReasoning", "userGuidance"];
 const boolFields = new Set(["humanize", "continuous", "headless", "superLikeEnabled", "captureReasoning", "intellectualEnabled"]);
 let settings = {};
 let state = { status: "idle", awaiting: null, swiping: false };
@@ -43,8 +43,6 @@ function renderSettingsDerived() {
   $("effort").disabled = !effortOk;
   $("effortHint").textContent = effortOk ? "" : "Haiku 4.5 has no effort control.";
   $("superLikeVal").textContent = fmtP(parseFloat($("superLikeThreshold").value));
-  $("intellectualVal").textContent = fmtP(parseFloat($("intellectualThreshold").value));
-  $("intellectualRow").hidden = $("intellectualEnabled").value !== "true";
   $("superLikeRow").hidden = $("superLikeEnabled").value !== "true";
   $("quickPassVal").textContent = fmtP(parseFloat($("quickPassBelow").value));
   $("continuousOpts").hidden = $("continuous").value !== "true";
@@ -126,15 +124,8 @@ function fillClassification(root, d) {
     bars[0].querySelector(".thresh").style.left = fmtP(d.threshold);
     bars[0].querySelector(".pval").textContent = fmtP(c.probability);
     if (typeof d.superLikeThreshold === "number") { const t = bars[0].querySelector(".thresh.super"); t.style.left = fmtP(d.superLikeThreshold); t.hidden = false; }
-    if (typeof c.intellectual_probability === "number") {
-      bars[1].hidden = false;
-      bars[1].querySelector(".fill").style.width = fmtP(c.intellectual_probability);
-      bars[1].querySelector(".pval").textContent = fmtP(c.intellectual_probability);
-      if (typeof d.intellectualThreshold === "number") { const t = bars[1].querySelector(".thresh.int"); t.style.left = fmtP(d.intellectualThreshold); t.hidden = false; }
-      if (typeof d.superLikeThreshold === "number") { const t = bars[1].querySelector(".thresh.super"); t.style.left = fmtP(d.superLikeThreshold); t.hidden = false; }
-    }
-    if (d.likedFor === "intellectual" || d.likedFor === "both") {
-      const lf = document.createElement("span"); lf.className = "badge likedfor"; lf.textContent = d.likedFor === "both" ? "🌱 + 🧠" : "🧠 intellectual";
+    if (c.intellectual_exception) {
+      const lf = document.createElement("span"); lf.className = "badge likedfor"; lf.textContent = "🧠 intellectual exception";
       badge.after(lf);
     }
     root.querySelector(".diet").textContent = c.dietary_badge ? `Dietary badge: ${c.dietary_badge}` : "No dietary badge shown";
@@ -347,13 +338,7 @@ function renderReview() {
   const minP = parseFloat($("minP").value);
   $("minPVal").textContent = fmtP(minP);
   const fAction = $("fAction").value, fSwipe = $("fSwipe").value, fSort = $("fSort").value, fVerdict = $("fVerdict").value;
-  const which = $("minPWhich").value;
-  const scoreOf = (d) => {
-    const c = d.classification; if (!c) return undefined;
-    if (which === "int") return c.intellectual_probability;
-    if (which === "max") return Math.max(c.probability, c.intellectual_probability ?? 0);
-    return c.probability;
-  };
+  const scoreOf = (d) => d.classification?.probability;
   let rows = all.filter((d) => {
     const p = scoreOf(d);
     if (minP > 0 && (p === undefined || p < minP)) return false;
@@ -362,6 +347,7 @@ function renderReview() {
     if (fAction === "like" && !/like$/.test(d.action)) return false;
     if (fAction === "pass" && !/pass$/.test(d.action)) return false;
     if (fAction === "skipped" && d.action !== "skipped") return false;
+    if (fAction === "exception" && !d.classification?.intellectual_exception) return false;
     if (fSwipe === "like" && d.userSwipe !== "like" && d.action !== "like") return false;
     if (fSwipe === "pass" && d.userSwipe !== "pass" && d.action !== "pass") return false;
     if (fSwipe === "none" && (d.userSwipe || d.action === "like" || d.action === "pass")) return false;
@@ -397,7 +383,7 @@ function renderReview() {
   }
 }
 document.addEventListener("focusout", () => { if (reviewDirty) setTimeout(() => { if (!isEditing($("reviewList"))) renderReview(); }, 50); });
-for (const id of ["minP", "minPWhich", "fAction", "fSwipe", "fSort", "fVerdict"]) $(id).addEventListener("input", () => { reviewLimit = REVIEW_PAGE; renderReview(); });
+for (const id of ["minP", "fAction", "fSwipe", "fSort", "fVerdict"]) $(id).addEventListener("input", () => { reviewLimit = REVIEW_PAGE; renderReview(); });
 
 // ---------- tabs ----------
 function showTab(name) {
@@ -437,5 +423,5 @@ $("startBtn").onclick = () => startRun("auto");
 $("reviewBtn").onclick = () => startRun("review");
 $("stopBtn").onclick = () => fetch("/api/stop", { method: "POST" });
 $("saveBtn").onclick = saveSettings;
-for (const f of ["threshold", "prior", "continuous", "quickPassBelow", "superLikeEnabled", "superLikeThreshold", "intellectualEnabled", "intellectualThreshold", "model"]) $(f).addEventListener("input", renderSettingsDerived);
+for (const f of ["threshold", "prior", "continuous", "quickPassBelow", "superLikeEnabled", "superLikeThreshold", "model"]) $(f).addEventListener("input", renderSettingsDerived);
 init();

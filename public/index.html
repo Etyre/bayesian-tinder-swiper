@@ -56,11 +56,7 @@
     <label class="row"><span>Intellectual exception</span>
       <select id="intellectualEnabled"><option value="true">On</option><option value="false">Off</option></select>
     </label>
-    <label class="row" id="intellectualRow">
-      <span>Also like when P(intellectual) ≥ <b id="intellectualVal"></b></span>
-      <input id="intellectualThreshold" type="range" min="0" max="1" step="0.01" />
-    </label>
-    <p class="hint">Exceptionally intelligent, intellectual, philosophical, thoughtful, and open-minded. Scored separately with a ~3% prior. Flag reference cases of the exception on cards with the 🧠 button; they're shown to the model.</p>
+    <p class="hint">Binary. If the model judges a profile exceptionally intelligent, intellectual, philosophical, thoughtful and open-minded, it likes her regardless of the diet score. Flag reference cases on cards with the 🧠 button; they're shown to the model.</p>
 
     <h2>Batches</h2>
     <label class="row"><span>Batch length (minutes, random between)</span>
@@ -149,11 +145,11 @@
   <section class="review">
     <div class="filters panel">
       <label class="row">
-        <span><select id="minPWhich" class="inline"><option value="veg">P(veg*n)</option><option value="int">P(intellectual)</option><option value="max">Either</option></select> ≥ <b id="minPVal">0%</b></span>
+        <span>Show profiles with P(veg*n) ≥ <b id="minPVal">0%</b></span>
         <input id="minP" type="range" min="0" max="1" step="0.05" value="0" />
       </label>
       <label class="row"><span>Model's call</span>
-        <select id="fAction"><option value="all">All</option><option value="like">Liked</option><option value="pass">Passed</option><option value="skipped">Not scored</option></select>
+        <select id="fAction"><option value="all">All</option><option value="like">Liked</option><option value="pass">Passed</option><option value="exception">🧠 Intellectual exception</option><option value="skipped">Not scored</option></select>
       </label>
       <label class="row"><span>Your grade</span>
         <select id="fVerdict"><option value="all">All</option><option value="ungraded">Not graded yet</option><option value="higher">Should be higher</option><option value="lower">Should be lower</option><option value="about_right">About right</option></select>
@@ -179,7 +175,6 @@
         <span class="badge action"></span>
       </div>
       <div class="prob"><span class="plabel">🌱 veg*n</span><div class="bar"><div class="fill"></div><div class="thresh" title="Like threshold"></div><div class="thresh super" title="Super like threshold" hidden></div></div><span class="pval"></span></div>
-      <div class="prob prob-int" hidden><span class="plabel">🧠 intellectual</span><div class="bar"><div class="fill int"></div><div class="thresh int" title="Intellectual threshold" hidden></div><div class="thresh super" title="Super like threshold" hidden></div></div><span class="pval"></span></div>
       <div class="model"><span class="badge modelchip"></span><span class="stage"></span></div>
       <div class="diet"></div>
       <ul class="evidence"></ul>
@@ -210,7 +205,6 @@
         <span class="badge action"></span>
       </div>
       <div class="prob"><span class="plabel">🌱 veg*n</span><div class="bar"><div class="fill"></div><div class="thresh" title="Like threshold"></div><div class="thresh super" title="Super like threshold" hidden></div></div><span class="pval"></span></div>
-      <div class="prob prob-int" hidden><span class="plabel">🧠 intellectual</span><div class="bar"><div class="fill int"></div><div class="thresh int" title="Intellectual threshold" hidden></div><div class="thresh super" title="Super like threshold" hidden></div></div><span class="pval"></span></div>
       <div class="model"><span class="badge modelchip"></span><span class="stage"></span></div>
       <div class="diet"></div>
       <ul class="evidence"></ul>

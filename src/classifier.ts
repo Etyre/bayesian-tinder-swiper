@@ -18,7 +18,7 @@ export const ClassificationSchema = z.object({
   evidence: z.array(EvidenceSchema),
   reasoning: z.string(),
   probability: z.number().min(0).max(1),
-  intellectual_probability: z.number().min(0).max(1),
+  intellectual_exception: z.boolean(),
 });
 /** Same call without the reasoning paragraph: fewer output tokens, faster. */
 export const TerseClassificationSchema = z.object({
@@ -27,7 +27,7 @@ export const TerseClassificationSchema = z.object({
   dietary_badge: z.string().nullable(),
   evidence: z.array(EvidenceSchema),
   probability: z.number().min(0).max(1),
-  intellectual_probability: z.number().min(0).max(1),
+  intellectual_exception: z.boolean(),
 });
 export type Classification = z.infer<typeof ClassificationSchema>;
 
@@ -72,8 +72,8 @@ export async function classifyProfile(profile: ProfileInput, settings: Settings)
   content.push({
     type: "text",
     text: settings.captureReasoning
-      ? "Estimate both probabilities for this woman. Follow the Bayesian procedure and return the JSON object."
-      : "Estimate both probabilities for this woman. Follow the Bayesian procedure and return the JSON object. Keep it terse: at most 5 evidence items, each observation under 12 words, no prose.",
+      ? "Estimate the diet probability and decide the intellectual exception for this woman. Follow the Bayesian procedure and return the JSON object."
+      : "Estimate the diet probability and decide the intellectual exception for this woman. Follow the Bayesian procedure and return the JSON object. Keep it terse: at most 5 evidence items, each observation under 12 words, no prose.",
   });
 
   // Haiku 4.5 predates adaptive thinking and the effort parameter; every other

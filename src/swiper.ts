@@ -280,7 +280,7 @@ export class Swiper extends EventEmitter {
         const usage = { ...first.usage };
         let bioOnlyProbability: number | undefined;
         let quickPass = false;
-        const intEarnsLike = !!c && settings.intellectualEnabled && c.intellectual_probability >= settings.intellectualThreshold;
+        const intEarnsLike = !!c && settings.intellectualEnabled && c.intellectual_exception;
         if (c && (settings.quickPassBelow >= 1 || c.probability < settings.quickPassBelow) && !intEarnsLike) {
           // Decide on the bio and first photo alone. At 100% this is every profile.
           quickPass = true;
@@ -305,13 +305,10 @@ export class Swiper extends EventEmitter {
         }
         const result = { usage, refused: first.refused };
         const vegLike = !!c && c.probability >= settings.threshold;
-        const intLike = !!c && settings.intellectualEnabled && c.intellectual_probability >= settings.intellectualThreshold;
+        const intLike = !!c && settings.intellectualEnabled && c.intellectual_exception;
         const likes = vegLike || intLike;
         const likedFor: Decision["likedFor"] | undefined = vegLike && intLike ? "both" : vegLike ? "veg" : intLike ? "intellectual" : undefined;
-        const superLikes =
-          likes &&
-          settings.superLikeEnabled &&
-          (c!.probability >= settings.superLikeThreshold || (intLike && c!.intellectual_probability >= settings.superLikeThreshold));
+        const superLikes = likes && settings.superLikeEnabled && c!.probability >= settings.superLikeThreshold;
         let action: Decision["action"];
         if (!c) action = "skipped";
         else if (settings.mode === "auto") action = superLikes ? "superlike" : likes ? "like" : "pass";
@@ -323,7 +320,6 @@ export class Swiper extends EventEmitter {
           action,
           threshold: settings.threshold,
           ...(settings.superLikeEnabled ? { superLikeThreshold: settings.superLikeThreshold } : {}),
-          ...(settings.intellectualEnabled ? { intellectualThreshold: settings.intellectualThreshold } : {}),
           ...(likedFor ? { likedFor } : {}),
           name: c?.name ?? profile.name,
           age: c?.age ?? profile.age,
@@ -367,9 +363,9 @@ export class Swiper extends EventEmitter {
       appendDecision(decision);
       this.emit("decision", decision);
       const p = decision.classification?.probability;
-      const pi = decision.classification?.intellectual_probability;
+      const ex = decision.classification?.intellectual_exception ? " 🧠 EXCEPTION" : "";
       this.log(
-        `${decision.name ?? "unknown"}: P(veg)=${p === undefined ? "n/a" : p.toFixed(2)} P(intellectual)=${pi === undefined ? "n/a" : pi.toFixed(2)} → ${decision.action === "superlike" ? "SUPER LIKE" : decision.action.replace("_", " ")}${decision.likedFor ? ` (${decision.likedFor})` : ""}`,
+        `${decision.name ?? "unknown"}: P=${p === undefined ? "n/a" : p.toFixed(2)}${ex} → ${decision.action === "superlike" ? "SUPER LIKE" : decision.action.replace("_", " ")}`,
       );
 
       if (settings.mode === "auto") {
