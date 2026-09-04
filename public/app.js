@@ -108,12 +108,14 @@ function fillClassification(root, d) {
   const c = d.classification;
   root.querySelector(".name").textContent = `${d.name ?? "Unknown"}${d.age ? `, ${d.age}` : ""}`;
   const badge = root.querySelector(".action");
-  const actionLabel = { like: "Liked", superlike: "Super liked", pass: "Passed", recommend_like: "Recommends like", recommend_pass: "Recommends pass", skipped: "Not scored" };
+  const actionLabel = { like: "Liked", superlike: "Superliked", pass: "Passed", recommend_like: "Recommends like", recommend_pass: "Recommends pass", skipped: "Not scored" };
   badge.textContent = actionLabel[d.action] ?? d.action.replace("_", " ");
   badge.className = "badge action " + d.action;
   if (c) {
     root.querySelector(".fill").style.width = fmtP(c.probability);
     root.querySelector(".thresh").style.left = fmtP(d.threshold);
+    const superTick = root.querySelector(".thresh.super");
+    if (typeof d.superLikeThreshold === "number") { superTick.style.left = fmtP(d.superLikeThreshold); superTick.hidden = false; }
     root.querySelector(".pval").textContent = fmtP(c.probability);
     root.querySelector(".diet").textContent = c.dietary_badge ? `Dietary badge: ${c.dietary_badge}` : "No dietary badge shown";
     root.querySelector(".modelchip").textContent = modelLabel(d);

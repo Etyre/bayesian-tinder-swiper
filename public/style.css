@@ -127,3 +127,6 @@ button.empty.more { width: 100%; cursor: pointer; color: var(--text); }
 .badge.modelchip { background: rgba(110,168,254,.14); color: #9cc0ff; text-transform: none; letter-spacing: 0; font-weight: 600; font-size: 11px; }
 
 select:disabled, input:disabled { opacity: .45; cursor: not-allowed; }
+
+.thresh.super { background: #6ea8fe; }
+.thresh.super[hidden] { display: none; }

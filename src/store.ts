@@ -8,6 +8,8 @@ export interface Decision {
   mode: "review" | "auto";
   action: "like" | "superlike" | "pass" | "recommend_like" | "recommend_pass" | "skipped";
   threshold: number;
+  /** Super-like threshold in force at the time, when super likes were enabled. */
+  superLikeThreshold?: number;
   name: string | null;
   age: number | null;
   photos: string[]; // relative URLs under /photos/
