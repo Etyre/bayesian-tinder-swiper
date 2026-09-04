@@ -13,7 +13,7 @@ export const SettingsSchema = z.object({
   prior: z.number().min(0.005).max(0.9).default(0.1),
   /** Each run is a "batch": a random session length like a person swiping for a while, then stopping. */
   batchMinMinutes: z.number().min(1).max(600).default(10),
-  batchMaxMinutes: z.number().min(1).max(600).default(120),
+  batchMaxMinutes: z.number().min(1).max(600).default(150),
   /** After a batch, wait a random break and start the next one automatically. */
   continuous: z.boolean().default(false),
   breakMinMinutes: z.number().min(1).max(10_000).default(90),
