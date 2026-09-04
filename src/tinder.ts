@@ -414,7 +414,8 @@ export class TinderBrowser {
     const page = this.p();
     const known = new Set(profile.photos.map((p) => p.url));
     const found = new Map<string, number>();
-    const total = Math.min(Math.max(profile.photoCount, 1), settings.maxPhotos);
+    // Look at every photo (Tinder allows up to 9, plus the occasional extra); only what's sent to the model is capped.
+    const total = Math.min(Math.max(profile.photoCount, 1), 12);
     const base = opts.pace === "slow" ? 2200 : 1300;
 
     // Photos only advance in the collapsed card, so close the profile first.
@@ -441,7 +442,7 @@ export class TinderBrowser {
       await sleep(dwell(1500));
     }
     const extra: Photo[] = [];
-    for (const url of Array.from(found.keys()).filter((u) => !known.has(u)).slice(0, Math.max(0, 9 - profile.photos.length))) {
+    for (const url of Array.from(found.keys()).filter((u) => !known.has(u)).slice(0, Math.max(0, settings.maxPhotos - profile.photos.length))) {
       const photo = await this.fetchPhoto(url);
       if (photo) extra.push(photo);
     }
