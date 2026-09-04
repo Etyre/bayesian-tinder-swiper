@@ -126,6 +126,7 @@
       <div><b id="sHigher">0</b><span>too low</span></div>
       <div><b id="sBias">–</b><span>avg bias</span></div>
     </div>
+    <p class="hint" id="gutGap"></p>
     <p class="hint">Grade the model's probability on each card in Review. "Avg bias" is your estimate minus the model's, where you gave one: positive means the model runs too low.</p>
 
     <h2>Log</h2>
@@ -156,6 +157,9 @@
       </label>
       <label class="row"><span>Your swipe</span>
         <select id="fSwipe"><option value="all">All</option><option value="like">You liked</option><option value="pass">You passed</option><option value="none">No swipe recorded</option></select>
+      </label>
+      <label class="row"><span>Probability shown</span>
+        <select id="fProb"><option value="gut">Model's gut check</option><option value="both">Gut check + arithmetic</option></select>
       </label>
       <label class="row"><span>Sort</span>
         <select id="fSort"><option value="prob">P(veg*n), high to low</option><option value="int">Intellectually Open-minded Exception probability, high to low</option><option value="time">Newest first</option><option value="oldest">Oldest first</option></select>

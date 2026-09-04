@@ -31,7 +31,22 @@ export const TerseClassificationSchema = z.object({
   intellectual_probability: z.number().min(0).max(1),
   intellectual_exception: z.boolean(),
 });
-export type Classification = z.infer<typeof ClassificationSchema>;
+export type Classification = z.infer<typeof ClassificationSchema> & {
+  /** Posterior from the prior and the listed diet ratios: prior odds × Π LR. Computed here, not by the model. */
+  arithmetic_probability?: number;
+};
+
+/** Multiply the prior odds by every listed diet likelihood ratio. */
+export function arithmeticPosterior(prior: number, evidence: { criterion: string; likelihood_ratio: number }[]): number {
+  const p = Math.min(0.99, Math.max(0.01, prior));
+  let odds = p / (1 - p);
+  for (const e of evidence) {
+    if (e.criterion !== "veg") continue;
+    if (!(e.likelihood_ratio > 0)) continue;
+    odds *= e.likelihood_ratio;
+  }
+  return Math.round((odds / (1 + odds)) * 1000) / 1000;
+}
 
 export interface ProfileInput {
   text: string;
@@ -126,9 +141,8 @@ export async function classifyProfile(profile: ProfileInput, settings: Settings)
   if (classification) {
     // The exception is off by default; only positive evidence for it is meaningful.
     classification.evidence = classification.evidence.filter((e) => e.criterion !== "intellectual" || e.direction === "for");
-    // If every diet ratio is 1:1 the model has said "no evidence", so the posterior is the prior by definition.
-    const diet = classification.evidence.filter((e) => e.criterion === "veg");
-    if (diet.every((e) => Math.abs(e.likelihood_ratio - 1) < 0.005)) classification.probability = settings.prior;
+    // Keep the model's own number ("gut check") untouched; the arithmetic posterior is recorded alongside it.
+    classification.arithmetic_probability = arithmeticPosterior(settings.prior, classification.evidence);
     // The exception is exactly "probability at or above the threshold", whatever the model's own flag said.
     classification.intellectual_exception = classification.intellectual_probability >= EXCEPTION_THRESHOLD;
   }

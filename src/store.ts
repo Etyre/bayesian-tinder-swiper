@@ -116,13 +116,22 @@ export function stats(): {
   /** Mean of (your estimate - model's probability) where you gave an estimate; positive = model too low. */
   meanBias: number | null;
   biasCount: number;
+  /** Mean of (gut check − arithmetic posterior) across scored profiles; positive = gut runs higher. */
+  meanGutGap: number | null;
+  gutGapCount: number;
 } {
   const all = readDecisions(100_000);
   const withEstimate = all.filter((d) => typeof d.userProbability === "number" && d.classification);
   const meanBias = withEstimate.length
     ? withEstimate.reduce((acc, d) => acc + (d.userProbability! - d.classification!.probability), 0) / withEstimate.length
     : null;
+  const withArith = all.filter((d) => d.classification && typeof d.classification.arithmetic_probability === "number");
+  const meanGutGap = withArith.length
+    ? withArith.reduce((acc, d) => acc + (d.classification!.probability - d.classification!.arithmetic_probability!), 0) / withArith.length
+    : null;
   return {
+    meanGutGap,
+    gutGapCount: withArith.length,
     seen: all.length,
     liked: all.filter((d) => d.action === "like" || d.action === "superlike").length,
     superLiked: all.filter((d) => d.action === "superlike").length,

@@ -107,6 +107,7 @@ function setStats(s) {
   $("sSeen").textContent = s.seen; $("sLiked").textContent = s.liked; $("sSuper").textContent = s.superLiked; $("sRec").textContent = s.recommendedLike;
   $("sLower").textContent = s.lower; $("sRight").textContent = s.aboutRight; $("sHigher").textContent = s.higher;
   $("sBias").textContent = s.meanBias === null ? "–" : (s.meanBias >= 0 ? "+" : "") + Math.round(s.meanBias * 100) + " pts";
+  $("gutGap").textContent = s.meanGutGap === null ? "" : `Gut check vs arithmetic: ${s.meanGutGap >= 0 ? "+" : ""}${(s.meanGutGap * 100).toFixed(1)} pts on average over ${s.gutGapCount} profiles.`;
 }
 async function refreshStats() { setStats((await (await fetch("/api/state")).json()).stats); }
 
@@ -123,6 +124,11 @@ function fillClassification(root, d) {
     bars[0].querySelector(".fill").style.width = fmtP(c.probability);
     bars[0].querySelector(".thresh").style.left = fmtP(d.threshold);
     bars[0].querySelector(".pval").textContent = fmtP(c.probability);
+    if (typeof c.arithmetic_probability === "number") {
+      const a = document.createElement("span"); a.className = "arith"; a.title = "Arithmetic posterior: prior odds × the listed ratios";
+      a.textContent = `arith ${fmtP(c.arithmetic_probability)}`;
+      bars[0].appendChild(a);
+    }
     if (typeof d.superLikeThreshold === "number") { const t = bars[0].querySelector(".thresh.super"); t.style.left = fmtP(d.superLikeThreshold); t.hidden = false; }
     if (c.intellectual_exception) {
       const lf = document.createElement("span"); lf.className = "badge likedfor"; lf.textContent = "🧠 intellectual exception";
@@ -346,6 +352,7 @@ function renderReview() {
   const which = $("minPWhich").value;
   const fSortNow = $("fSort").value;
   document.body.classList.toggle("show-intp", which === "int" || fSortNow === "int"); // exception probability shows only when filtering or sorting by it
+  document.body.classList.toggle("show-arith", $("fProb").value === "both");
   const scoreOf = (d) => (which === "int" ? d.classification?.intellectual_probability : d.classification?.probability);
   const intOf = (d) => d.classification?.intellectual_probability ?? -1;
   let rows = all.filter((d) => {
@@ -397,7 +404,7 @@ function renderReview() {
   }
 }
 document.addEventListener("focusout", () => { if (reviewDirty) setTimeout(() => { if (!isEditing($("reviewList"))) renderReview(); }, 50); });
-for (const id of ["minP", "minPWhich", "fAction", "fSwipe", "fSort", "fVerdict"]) $(id).addEventListener("input", () => { reviewLimit = REVIEW_PAGE; renderReview(); });
+for (const id of ["minP", "minPWhich", "fAction", "fSwipe", "fSort", "fVerdict", "fProb"]) $(id).addEventListener("input", () => { reviewLimit = REVIEW_PAGE; renderReview(); });
 
 // ---------- tabs ----------
 function showTab(name) {

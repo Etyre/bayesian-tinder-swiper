@@ -142,3 +142,6 @@ select.inline { width: auto; display: inline-block; padding: 2px 6px; font-size:
 
 .card .intp { display: none; color: #d9c6ff; font-size: 12px; font-weight: 600; }
 body.show-intp #tab-review .card .intp { display: inline; }
+
+.arith { display: none; color: var(--muted); font-size: 11px; margin-left: 8px; white-space: nowrap; }
+body.show-arith #tab-review .arith { display: inline; }
