@@ -5,18 +5,25 @@ import { buildSystemPrompt, buildFeedbackPrompt } from "./prompt.js";
 import { feedbackExamples } from "./store.js";
 import type { Settings } from "./config.js";
 
+const EvidenceSchema = z.object({
+  observation: z.string(),
+  direction: z.enum(["for", "against", "neutral"]),
+  likelihood_ratio: z.number(),
+});
 export const ClassificationSchema = z.object({
   name: z.string().nullable(),
   age: z.number().int().nullable(),
   dietary_badge: z.string().nullable(),
-  evidence: z.array(
-    z.object({
-      observation: z.string(),
-      direction: z.enum(["for", "against", "neutral"]),
-      likelihood_ratio: z.number(),
-    }),
-  ),
+  evidence: z.array(EvidenceSchema),
   reasoning: z.string(),
+  probability: z.number().min(0).max(1),
+});
+/** Same call without the reasoning paragraph: fewer output tokens, faster. */
+export const TerseClassificationSchema = z.object({
+  name: z.string().nullable(),
+  age: z.number().int().nullable(),
+  dietary_badge: z.string().nullable(),
+  evidence: z.array(EvidenceSchema),
   probability: z.number().min(0).max(1),
 });
 export type Classification = z.infer<typeof ClassificationSchema>;
@@ -61,7 +68,9 @@ export async function classifyProfile(profile: ProfileInput, settings: Settings)
 
   content.push({
     type: "text",
-    text: "Estimate the probability that this woman meets the criterion. Follow the Bayesian procedure and return the JSON object.",
+    text: settings.captureReasoning
+      ? "Estimate the probability that this woman meets the criterion. Follow the Bayesian procedure and return the JSON object."
+      : "Estimate the probability that this woman meets the criterion. Follow the Bayesian procedure and return the JSON object. Keep it terse: at most 4 evidence items, each observation under 12 words, no prose.",
   });
 
   // Haiku 4.5 predates adaptive thinking and the effort parameter; every other
@@ -89,7 +98,10 @@ export async function classifyProfile(profile: ProfileInput, settings: Settings)
     model: settings.model,
     max_tokens: 4000,
     ...(isHaiku ? {} : { thinking: { type: "adaptive" as const } }),
-    output_config: { ...(isHaiku ? {} : { effort: settings.effort }), format: zodOutputFormat(ClassificationSchema) },
+    output_config: {
+      ...(isHaiku ? {} : { effort: settings.effort }),
+      format: zodOutputFormat(settings.captureReasoning ? ClassificationSchema : TerseClassificationSchema),
+    },
     system,
     messages: [{ role: "user", content }],
   });
@@ -103,5 +115,7 @@ export async function classifyProfile(profile: ProfileInput, settings: Settings)
   if (response.stop_reason === "refusal") {
     return { classification: null, refused: true, usage };
   }
-  return { classification: response.parsed_output ?? null, refused: false, usage };
+  const parsed = response.parsed_output as Partial<Classification> | null | undefined;
+  const classification: Classification | null = parsed ? { reasoning: "", ...parsed } as Classification : null;
+  return { classification, refused: false, usage };
 }

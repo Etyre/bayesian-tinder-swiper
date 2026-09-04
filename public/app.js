@@ -1,6 +1,6 @@
 const $ = (id) => document.getElementById(id);
-const fields = ["threshold", "superLikeEnabled", "superLikeThreshold", "prior", "batchMinMinutes", "batchMaxMinutes", "continuous", "breakMinMinutes", "breakMaxMinutes", "activeStartHour", "activeEndHour", "maxSwipesPerSession", "minDelayMs", "maxDelayMs", "humanize", "quickPassBelow", "maxPhotos", "model", "effort", "browserChannel", "headless", "userGuidance"];
-const boolFields = new Set(["humanize", "continuous", "headless", "superLikeEnabled"]);
+const fields = ["threshold", "superLikeEnabled", "superLikeThreshold", "prior", "batchMinMinutes", "batchMaxMinutes", "continuous", "breakMinMinutes", "breakMaxMinutes", "activeStartHour", "activeEndHour", "maxSwipesPerSession", "minDelayMs", "maxDelayMs", "humanize", "quickPassBelow", "maxPhotos", "model", "effort", "browserChannel", "headless", "captureReasoning", "userGuidance"];
+const boolFields = new Set(["humanize", "continuous", "headless", "superLikeEnabled", "captureReasoning"]);
 let settings = {};
 let state = { status: "idle", awaiting: null, swiping: false };
 const decisionsById = new Map();
@@ -139,7 +139,8 @@ function fillClassification(root, d) {
       const lr = document.createElement("span"); lr.className = "lr"; lr.textContent = `LR ${fmtRatio(e.likelihood_ratio)}`; li.appendChild(lr);
       ul.appendChild(li);
     }
-    root.querySelector(".reasoning").textContent = c.reasoning;
+    if (c.reasoning) root.querySelector(".reasoning").textContent = c.reasoning;
+    else root.querySelector(".reasoning")?.closest("details")?.remove();
   } else {
     root.querySelector(".prob")?.remove();
     root.querySelector(".reasoning")?.closest("details")?.remove();

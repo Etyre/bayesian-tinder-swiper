@@ -45,6 +45,7 @@ If you don't have Google Chrome installed, switch "Browser" to *Bundled Chromium
 | Quick pass below | 15% | Two-stage judging. Stage one scores the bio and the photo already showing; below this it passes right away. Otherwise it looks at every photo and re-scores with the full set |
 | Max photos sent to model | 5 | Cap when it does flip through |
 | Window | visible | Headless runs without a window. Login always gets a visible window; a real window is slightly harder to fingerprint as a bot |
+| Written reasoning | off | On adds a reasoning paragraph to each card at the cost of a couple of seconds per profile. The evidence list is always captured |
 | Model / effort | claude-opus-5 / medium | Dropdown: Opus 5, Sonnet 5, Haiku 4.5, Opus 4.8, Fable 5.1. Raise effort for harder judgment calls, lower for cost |
 
 ## What counts as evidence

@@ -41,6 +41,8 @@ export const SettingsSchema = z.object({
     .enum(["claude-opus-5", "claude-sonnet-5", "claude-fable-5-1", "claude-opus-4-8", "claude-haiku-4-5"])
     .default("claude-opus-5"),
   effort: z.enum(["low", "medium", "high", "xhigh", "max"]).default("medium"),
+  /** Ask the model for a written reasoning paragraph on each card. Slower; the evidence list is kept either way. */
+  captureReasoning: z.boolean().default(false),
   /** Free-text guidance for the model, e.g. how you want borderline diets treated. Goes into every prompt. */
   userGuidance: z.string().max(4000).default(""),
   /** Run the browser without a visible window. Login always uses a visible window. */
