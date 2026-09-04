@@ -3,7 +3,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { buildSystemPrompt, buildFeedbackPrompt } from "./prompt.js";
 import { feedbackExamples, exemplarProfiles } from "./store.js";
-import type { Settings } from "./config.js";
+import { EXCEPTION_THRESHOLD, type Settings } from "./config.js";
 
 const EvidenceSchema = z.object({
   criterion: z.enum(["veg", "intellectual"]),
@@ -126,6 +126,8 @@ export async function classifyProfile(profile: ProfileInput, settings: Settings)
   if (classification) {
     // The exception is off by default; only positive evidence for it is meaningful.
     classification.evidence = classification.evidence.filter((e) => e.criterion !== "intellectual" || e.direction === "for");
+    // The exception is exactly "probability at or above the threshold", whatever the model's own flag said.
+    classification.intellectual_exception = classification.intellectual_probability >= EXCEPTION_THRESHOLD;
   }
   return { classification, refused: false, usage };
 }

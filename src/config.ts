@@ -2,6 +2,9 @@ import fs from "node:fs";
 import { z } from "zod";
 import { SETTINGS_FILE } from "./paths.js";
 
+/** The intellectual exception is raised when the model's probability reaches this. Fixed, not a slider. */
+export const EXCEPTION_THRESHOLD = 0.6;
+
 export const SettingsSchema = z.object({
   /** "review": classify, show recommendation, wait for you to swipe by hand.
    *  "auto": swipe automatically based on the classifier. */
