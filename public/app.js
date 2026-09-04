@@ -344,8 +344,10 @@ function renderReview() {
   $("minPVal").textContent = fmtP(minP);
   const fAction = $("fAction").value, fSwipe = $("fSwipe").value, fSort = $("fSort").value, fVerdict = $("fVerdict").value;
   const which = $("minPWhich").value;
-  document.body.classList.toggle("show-intp", which === "int"); // exception probability only shows while filtering on it
+  const fSortNow = $("fSort").value;
+  document.body.classList.toggle("show-intp", which === "int" || fSortNow === "int"); // exception probability shows only when filtering or sorting by it
   const scoreOf = (d) => (which === "int" ? d.classification?.intellectual_probability : d.classification?.probability);
+  const intOf = (d) => d.classification?.intellectual_probability ?? -1;
   let rows = all.filter((d) => {
     const p = scoreOf(d);
     if (minP > 0 && (p === undefined || p < minP)) return false;
@@ -361,7 +363,8 @@ function renderReview() {
     return true;
   });
   rows.sort((a, b) => {
-    if (fSort === "prob") return (scoreOf(b) ?? -1) - (scoreOf(a) ?? -1) || (b.at > a.at ? 1 : -1);
+    if (fSort === "prob") return (b.classification?.probability ?? -1) - (a.classification?.probability ?? -1) || (b.at > a.at ? 1 : -1);
+    if (fSort === "int") return intOf(b) - intOf(a) || (b.at > a.at ? 1 : -1);
     if (fSort === "oldest") return a.at < b.at ? -1 : 1;
     return a.at < b.at ? 1 : -1;
   });
