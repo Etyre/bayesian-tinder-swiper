@@ -122,12 +122,19 @@ function fillClassification(root, d) {
     root.querySelector(".diet").innerHTML = `<span class="error">${d.error ?? "Not classified"}</span>`;
   }
 }
-function fillPhotos(root, d, limit) {
+const thumbUrl = (url) => url.replace(/^\/photos\//, "/thumbs/");
+function fillPhotos(root, d, limit, full = false) {
   const photos = root.querySelector(".photos");
   photos.innerHTML = "";
   for (const url of d.photos.slice(0, limit)) {
-    const img = document.createElement("img"); img.src = url; img.loading = "lazy";
-    img.onclick = () => img.classList.toggle("zoom");
+    const img = document.createElement("img");
+    img.src = full ? url : thumbUrl(url);
+    img.loading = "lazy"; img.decoding = "async";
+    img.onclick = () => {
+      // Zoom shows the full-size original; un-zoom goes back to the thumbnail.
+      const zoomed = img.classList.toggle("zoom");
+      img.src = zoomed || full ? url : thumbUrl(url);
+    };
     photos.appendChild(img);
   }
 }
@@ -157,7 +164,7 @@ function renderCurrent() {
   currentDecisionId = id;
   const tpl = $("currentTpl").content.cloneNode(true);
   fillClassification(tpl, d);
-  fillPhotos(tpl, d, 9);
+  fillPhotos(tpl, d, 9, true);
   tpl.querySelector(".ptext").textContent = d.profileText || "(no profile text captured)";
   const rec = d.action === "recommend_like" ? "like" : d.action === "recommend_pass" ? "pass" : null;
   tpl.querySelector(".swipeHint").textContent = rec ? `Model recommends: ${rec}. Your swipe is final and is recorded as agree/disagree.` : "Model could not score this one. Your call.";
@@ -282,8 +289,11 @@ function scheduleReviewRender() {
   reviewTimer = setTimeout(renderReview, 150);
 }
 let reviewDirty = false;
+const REVIEW_PAGE = 40;
+let reviewLimit = REVIEW_PAGE;
 function renderReview() {
   const list = $("reviewList");
+  if ($("tab-review").hidden) { reviewDirty = true; return; } // render when the tab is shown
   if (isEditing(list)) { reviewDirty = true; return; } // finish typing first; re-render on blur
   reviewDirty = false;
   const all = Array.from(decisionsById.values());
@@ -314,7 +324,7 @@ function renderReview() {
     ? `${rows.length} of ${all.length} profiles shown · ${above} scored at or above ${fmtP(minP)}`
     : "Nothing evaluated yet.";
   // Reuse existing cards (same decision object => same card), so typed text and open <details> survive.
-  const shown = rows.slice(0, 300);
+  const shown = rows.slice(0, reviewLimit);
   const keep = new Set(shown.map((d) => d.id));
   for (const [id, entry] of reviewCards) if (!keep.has(id)) { entry.el.remove(); reviewCards.delete(id); }
   for (const d of shown) {
@@ -327,13 +337,14 @@ function renderReview() {
     list.appendChild(entry.el); // appending in order moves existing nodes into place
   }
   list.querySelector(".empty")?.remove();
-  if (rows.length > 300) {
-    const more = document.createElement("div"); more.className = "empty"; more.textContent = `Showing 300 of ${rows.length}. Tighten the filter to see the rest.`;
+  if (rows.length > reviewLimit) {
+    const more = document.createElement("button"); more.className = "empty more"; more.textContent = `Show more (${shown.length} of ${rows.length})`;
+    more.onclick = () => { reviewLimit += REVIEW_PAGE; renderReview(); };
     list.appendChild(more);
   }
 }
 document.addEventListener("focusout", () => { if (reviewDirty) setTimeout(() => { if (!isEditing($("reviewList"))) renderReview(); }, 50); });
-for (const id of ["minP", "fAction", "fSwipe", "fSort", "fVerdict"]) $(id).addEventListener("input", renderReview);
+for (const id of ["minP", "fAction", "fSwipe", "fSort", "fVerdict"]) $(id).addEventListener("input", () => { reviewLimit = REVIEW_PAGE; renderReview(); });
 
 // ---------- tabs ----------
 function showTab(name) {

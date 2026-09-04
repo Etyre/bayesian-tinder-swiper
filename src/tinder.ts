@@ -585,6 +585,23 @@ export class TinderBrowser {
     return { url: page.url(), onRecs: this.onRecs(), error, info, summary };
   }
 
+  /** Reload the Tinder tab. Long single-page sessions accumulate memory; a person hits refresh now and then too. */
+  async reloadDeck(): Promise<void> {
+    const page = this.p();
+    await page.goto(RECS_URL, { waitUntil: "domcontentloaded" }).catch(() => {});
+    await page.waitForTimeout(3000);
+  }
+
+  /** Resident memory of this app's browser processes, in MB (macOS/Linux). */
+  memoryMB(): number | null {
+    try {
+      const out = execSync(`ps -axo rss,command | grep -- "user-data-dir=${PROFILE_DIR}" | grep -v grep | awk '{s+=$1} END {print s+0}'`, { encoding: "utf8" }).trim();
+      return Math.round(parseInt(out, 10) / 1024);
+    } catch {
+      return null;
+    }
+  }
+
   async saveErrorScreenshot(tag: string): Promise<string | null> {
     try {
       const file = path.join(ERRORS_DIR, `${Date.now()}-${tag}.png`);

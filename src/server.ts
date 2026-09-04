@@ -1,5 +1,8 @@
 import "dotenv/config";
 import express from "express";
+import fs from "node:fs";
+import path from "node:path";
+import sharp from "sharp";
 import { PUBLIC_DIR, PHOTOS_DIR } from "./paths.js";
 import { loadSettings, updateSettings } from "./config.js";
 import { readDecisions, setVerdict, stats, updateDecision } from "./store.js";
@@ -9,6 +12,25 @@ const app = express();
 app.use(express.json());
 app.use(express.static(PUBLIC_DIR));
 app.use("/photos", express.static(PHOTOS_DIR, { maxAge: "1d" }));
+
+// Small thumbnails for the dashboard, generated on first request and cached next to the original.
+// Full-size photos decode to a few MB each in the browser; hundreds of them was eating memory.
+app.get("/thumbs/:id/:file", async (req, res) => {
+  const id = String(req.params.id), file = String(req.params.file);
+  if (!/^[\w-]+$/.test(id) || !/^\d+\.(jpeg|jpg|png|webp|gif)$/.test(file)) return res.status(400).end();
+  const original = path.join(PHOTOS_DIR, id, file);
+  const thumb = path.join(PHOTOS_DIR, id, `thumb-${file.replace(/\.\w+$/, ".jpg")}`);
+  try {
+    if (!fs.existsSync(thumb)) {
+      if (!fs.existsSync(original)) return res.status(404).end();
+      await sharp(original).rotate().resize({ width: 360, withoutEnlargement: true }).jpeg({ quality: 78 }).toFile(thumb);
+    }
+    res.set("Cache-Control", "public, max-age=604800");
+    res.sendFile(thumb);
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
 
 const swiper = new Swiper();
 const recentLog: { at: string; message: string }[] = [];

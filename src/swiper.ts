@@ -61,6 +61,8 @@ export class Swiper extends EventEmitter {
   private browser: TinderBrowser;
   private pendingChoice: { decisionId: string; direction: "like" | "pass" } | null = null;
   private scheduleTimer: NodeJS.Timeout | null = null;
+  private reloadEvery = 35;
+  private lastReloadAt = -1;
   private stopRequested = false;
   private loopPromise: Promise<void> | null = null;
 
@@ -226,6 +228,12 @@ export class Swiper extends EventEmitter {
         this.endBatch("could not get back to the swipe deck; check the browser window.");
         break;
       }
+      const seen = this.state.batch?.evaluated ?? 0;
+      if (seen > 0 && seen % this.reloadEvery === 0 && seen !== this.lastReloadAt) {
+        this.lastReloadAt = seen;
+        this.log("Refreshing the Tinder tab to keep memory in check.");
+        await this.browser.reloadDeck();
+      }
       await this.browser.dismissPopups();
       if (await this.browser.isOutOfLikes()) {
         this.endBatch("Tinder says you're out of likes.");
@@ -250,6 +258,11 @@ export class Swiper extends EventEmitter {
       }
       consecutiveFailures = 0;
       if (this.state.batch) this.state.batch.evaluated++;
+      const n = this.state.batch?.evaluated ?? 0;
+      if (n % 10 === 0) {
+        const mb = this.browser.memoryMB();
+        if (mb) this.log(`Browser memory: ${mb} MB after ${n} profiles.`);
+      }
       this.state.current = { name: profile.name, fingerprint: profile.fingerprint };
       this.emit("state", this.state);
       this.log(`Evaluating ${profile.name ?? "unknown"}${profile.age ? `, ${profile.age}` : ""} (${profile.photos.length} photos)…`);
