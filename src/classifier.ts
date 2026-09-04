@@ -122,6 +122,10 @@ export async function classifyProfile(profile: ProfileInput, settings: Settings)
     return { classification: null, refused: true, usage };
   }
   const parsed = response.parsed_output as Partial<Classification> | null | undefined;
-  const classification: Classification | null = parsed ? { reasoning: "", ...parsed } as Classification : null;
+  const classification: Classification | null = parsed ? ({ reasoning: "", ...parsed } as Classification) : null;
+  if (classification) {
+    // The exception is off by default; only positive evidence for it is meaningful.
+    classification.evidence = classification.evidence.filter((e) => e.criterion !== "intellectual" || e.direction === "for");
+  }
   return { classification, refused: false, usage };
 }
