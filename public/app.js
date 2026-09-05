@@ -90,7 +90,6 @@ function setState(s) {
   $("sSession").textContent = s.swipesThisSession;
   const busy = ["launching", "awaiting_login", "running", "stopping"].includes(s.status);
   $("startBtn").disabled = busy;
-  $("reviewBtn").disabled = busy;
   $("stopBtn").disabled = !busy && s.status !== "waiting";
   $("startBtn").textContent = s.status === "waiting" ? "Start next batch now" : "Start batch (auto)";
   if (busy) $("statusText").textContent += settings.mode === "auto" ? " · auto" : " · manual review";
@@ -510,7 +509,6 @@ async function startRun(mode) {
   if (res.ok) { settings.mode = mode; }
 }
 $("startBtn").onclick = () => startRun("auto");
-$("reviewBtn").onclick = () => startRun("review");
 $("stopBtn").onclick = () => fetch("/api/stop", { method: "POST" });
 $("saveBtn").onclick = saveSettings;
 for (const f of ["threshold", "prior", "continuous", "quickPassBelow", "superLikeEnabled", "superLikeThreshold", "model"]) $(f).addEventListener("input", renderSettingsDerived);
