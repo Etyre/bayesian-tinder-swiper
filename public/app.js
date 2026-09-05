@@ -355,9 +355,15 @@ function renderDecision(d, prepend) {
 
 // ---------- review tab ----------
 let reviewTimer = null;
+let pendingReview = 0; // background updates held back while you're reading the list
 function scheduleReviewRender() {
   clearTimeout(reviewTimer);
-  reviewTimer = setTimeout(renderReview, 150);
+  reviewTimer = setTimeout(() => renderReview(false), 150);
+}
+function updatePendingPill() {
+  const pill = $("reviewPending");
+  pill.hidden = pendingReview === 0;
+  if (pendingReview) pill.textContent = `${pendingReview} new ${pendingReview === 1 ? "entry" : "entries"} · click to update the list`;
 }
 // Batches: real ids going forward; older entries are grouped by gaps of more than 15 minutes.
 function assignBatches(all) {
@@ -389,10 +395,13 @@ function refreshBatchOptions(groups) {
 let reviewDirty = false;
 const REVIEW_PAGE = 40;
 let reviewLimit = REVIEW_PAGE;
-function renderReview() {
+function renderReview(userInitiated = true) {
   const list = $("reviewList");
   if ($("tab-review").hidden) { reviewDirty = true; return; } // render when the tab is shown
   if (isEditing(list)) { reviewDirty = true; return; } // finish typing first; re-render on blur
+  // A background update while you're scrolled into the list would move things under you. Hold it.
+  if (!userInitiated && window.scrollY > 150 && list.children.length) { pendingReview++; reviewDirty = true; updatePendingPill(); return; }
+  pendingReview = 0; updatePendingPill();
   reviewDirty = false;
   const all = Array.from(decisionsById.values());
   refreshBatchOptions(assignBatches(all));
@@ -461,7 +470,9 @@ function renderReview() {
     }
   });
 }
-document.addEventListener("focusout", () => { if (reviewDirty) setTimeout(() => { if (!isEditing($("reviewList"))) renderReview(); }, 50); });
+document.addEventListener("focusout", () => { if (reviewDirty) setTimeout(() => { if (!isEditing($("reviewList"))) renderReview(false); }, 50); });
+$("reviewPending").onclick = () => { window.scrollTo({ top: 0 }); renderReview(true); };
+window.addEventListener("scroll", () => { if (pendingReview && window.scrollY <= 150 && !$("tab-review").hidden) renderReview(true); }, { passive: true });
 for (const id of ["minP", "minPWhich", "fAction", "fSwipe", "fSort", "fVerdict", "fProb", "fBatch"]) $(id).addEventListener("input", () => { reviewLimit = REVIEW_PAGE; renderReview(); });
 
 // ---------- tabs ----------
@@ -470,7 +481,7 @@ function showTab(name) {
   $("tab-swipe").hidden = name !== "swipe";
   $("tab-review").hidden = name !== "review";
   try { localStorage.setItem("tab", name); } catch {}
-  if (name === "review") renderReview();
+  if (name === "review") renderReview(true);
 }
 document.querySelectorAll(".tabs .tab").forEach((b) => (b.onclick = () => showTab(b.dataset.tab)));
 

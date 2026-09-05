@@ -145,3 +145,6 @@ body.show-intp #tab-review .card .intp { display: inline; }
 
 .arith { display: none; color: var(--muted); font-size: 11px; margin-left: 8px; white-space: nowrap; }
 body.show-arith #tab-review .arith { display: inline; }
+
+.pending { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 3; background: var(--accent); color: #062b1e; border-color: var(--accent2); box-shadow: 0 4px 16px rgba(0,0,0,.4); }
+.pending[hidden] { display: none; }
