@@ -11,6 +11,22 @@ const isEditing = (el) => el && el.contains(document.activeElement) && ["TEXTARE
 let currentDecisionId = null;
 
 function fmtP(p) { return (p * 100).toFixed(0) + "%"; }
+
+// Keep whatever card is at the top of the viewport in place while the DOM above it changes,
+// so a new entry arriving doesn't shove the one you're reading down the page.
+function keepScroll(update) {
+  const cards = document.querySelectorAll(".tabpane:not([hidden]) .card");
+  let anchor = null, top = 0;
+  for (const c of cards) {
+    const r = c.getBoundingClientRect();
+    if (r.bottom > 0) { anchor = c; top = r.top; break; }
+  }
+  update();
+  if (anchor && anchor.isConnected && window.scrollY > 0) {
+    const delta = anchor.getBoundingClientRect().top - top;
+    if (Math.abs(delta) > 1) window.scrollBy(0, delta);
+  }
+}
 const modelNames = { "claude-opus-5": "Claude Opus 5", "claude-sonnet-5": "Claude Sonnet 5", "claude-haiku-4-5": "Claude Haiku 4.5", "claude-opus-4-8": "Claude Opus 4.8", "claude-fable-5-1": "Claude Fable 5.1" };
 const hasEffort = (model) => !/haiku/i.test(model || "");
 function modelLabel(d) {
@@ -183,7 +199,8 @@ function fillPhotos(root, d, limit, full = false) {
 }
 
 // ---------- current profile (review mode) ----------
-function renderCurrent() {
+function renderCurrent() { keepScroll(renderCurrentInner); }
+function renderCurrentInner() {
   const box = $("current");
   const id = state.awaiting?.decisionId ?? null;
   if (state.status !== "running") {
@@ -321,14 +338,16 @@ function renderDecision(d, prepend) {
   const existing = cardEls.get(d.id);
   if (existing && isEditing(existing)) { scheduleReviewRender(); return; }
   const article = buildCard(d);
-  const feed = $("decisions");
-  feed.querySelector(".empty")?.remove();
-  if (existing) existing.replaceWith(article);
-  else prepend ? feed.prepend(article) : feed.appendChild(article);
-  article.hidden = state.awaiting?.decisionId === d.id;
-  cardEls.set(d.id, article);
-  // Keep only the most recent few in the Swipe tab; the Review tab has everything.
-  while (feed.children.length > 8) feed.lastElementChild.remove();
+  keepScroll(() => {
+    const feed = $("decisions");
+    feed.querySelector(".empty")?.remove();
+    if (existing) existing.replaceWith(article);
+    else prepend ? feed.prepend(article) : feed.appendChild(article);
+    article.hidden = state.awaiting?.decisionId === d.id;
+    cardEls.set(d.id, article);
+    // Keep only the most recent few in the Swipe tab; the Review tab has everything.
+    while (feed.children.length > 8) feed.lastElementChild.remove();
+  });
   scheduleReviewRender();
 }
 
@@ -387,23 +406,25 @@ function renderReview() {
     : "Nothing evaluated yet.";
   // Reuse existing cards (same decision object => same card), so typed text and open <details> survive.
   const shown = rows.slice(0, reviewLimit);
-  const keep = new Set(shown.map((d) => d.id));
-  for (const [id, entry] of reviewCards) if (!keep.has(id)) { entry.el.remove(); reviewCards.delete(id); }
-  for (const d of shown) {
-    let entry = reviewCards.get(d.id);
-    if (!entry || entry.ref !== d) {
-      if (entry) entry.el.remove();
-      entry = { el: buildCard(d), ref: d };
-      reviewCards.set(d.id, entry);
+  keepScroll(() => {
+    const keep = new Set(shown.map((d) => d.id));
+    for (const [id, entry] of reviewCards) if (!keep.has(id)) { entry.el.remove(); reviewCards.delete(id); }
+    for (const d of shown) {
+      let entry = reviewCards.get(d.id);
+      if (!entry || entry.ref !== d) {
+        if (entry) entry.el.remove();
+        entry = { el: buildCard(d), ref: d };
+        reviewCards.set(d.id, entry);
+      }
+      list.appendChild(entry.el); // appending in order moves existing nodes into place
     }
-    list.appendChild(entry.el); // appending in order moves existing nodes into place
-  }
-  list.querySelector(".empty")?.remove();
-  if (rows.length > reviewLimit) {
-    const more = document.createElement("button"); more.className = "empty more"; more.textContent = `Show more (${shown.length} of ${rows.length})`;
-    more.onclick = () => { reviewLimit += REVIEW_PAGE; renderReview(); };
-    list.appendChild(more);
-  }
+    list.querySelector(".empty")?.remove();
+    if (rows.length > reviewLimit) {
+      const more = document.createElement("button"); more.className = "empty more"; more.textContent = `Show more (${shown.length} of ${rows.length})`;
+      more.onclick = () => { reviewLimit += REVIEW_PAGE; renderReview(); };
+      list.appendChild(more);
+    }
+  });
 }
 document.addEventListener("focusout", () => { if (reviewDirty) setTimeout(() => { if (!isEditing($("reviewList"))) renderReview(); }, 50); });
 for (const id of ["minP", "minPWhich", "fAction", "fSwipe", "fSort", "fVerdict", "fProb"]) $(id).addEventListener("input", () => { reviewLimit = REVIEW_PAGE; renderReview(); });
