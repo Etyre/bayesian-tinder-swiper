@@ -15,7 +15,7 @@ export interface SwiperState {
   awaiting: { decisionId: string } | null;
   swiping: boolean;
   /** The batch in progress: when it started, when it will end, how many profiles so far. */
-  batch: { startedAt: string; endsAt: string; plannedMinutes: number; evaluated: number } | null;
+  batch: { id: string; startedAt: string; endsAt: string; plannedMinutes: number; evaluated: number } | null;
   /** When the next batch is scheduled to start (continuous mode). */
   nextBatchAt: string | null;
   /** Why the last batch ended. */
@@ -97,6 +97,7 @@ export class Swiper extends EventEmitter {
       const minutes = Math.round(rand(settings.batchMinMinutes, settings.batchMaxMinutes));
       const startedAt = new Date();
       this.state.batch = {
+        id: startedAt.toISOString(),
         startedAt: startedAt.toISOString(),
         endsAt: new Date(startedAt.getTime() + minutes * 60_000).toISOString(),
         plannedMinutes: minutes,
@@ -316,6 +317,7 @@ export class Swiper extends EventEmitter {
         decision = {
           id,
           at: new Date().toISOString(),
+          ...(this.state.batch ? { batchId: this.state.batch.id } : {}),
           mode: settings.mode,
           action,
           threshold: settings.threshold,
@@ -340,6 +342,7 @@ export class Swiper extends EventEmitter {
         decision = {
           id,
           at: new Date().toISOString(),
+          ...(this.state.batch ? { batchId: this.state.batch.id } : {}),
           mode: settings.mode,
           action: "skipped",
           threshold: settings.threshold,

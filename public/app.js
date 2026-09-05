@@ -357,6 +357,33 @@ function scheduleReviewRender() {
   clearTimeout(reviewTimer);
   reviewTimer = setTimeout(renderReview, 150);
 }
+// Batches: real ids going forward; older entries are grouped by gaps of more than 15 minutes.
+function assignBatches(all) {
+  const sorted = [...all].sort((a, b) => (a.at < b.at ? -1 : 1));
+  let pseudo = null, lastT = 0;
+  for (const d of sorted) {
+    const t = new Date(d.at).getTime();
+    if (d.batchId) { d._batch = d.batchId; pseudo = null; }
+    else {
+      if (!pseudo || t - lastT > 15 * 60_000) pseudo = "~" + d.at;
+      d._batch = pseudo;
+    }
+    lastT = t;
+  }
+  const groups = new Map();
+  for (const d of sorted) { const g = groups.get(d._batch) ?? { id: d._batch, start: d.at, n: 0 }; g.n++; groups.set(d._batch, g); }
+  return [...groups.values()].sort((a, b) => (a.start < b.start ? 1 : -1));
+}
+function refreshBatchOptions(groups) {
+  const sel = $("fBatch"); const cur = sel.value;
+  const label = (g) => `${new Date(g.start).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · ${g.n} profiles${g.id.startsWith("~") ? " (grouped by time)" : ""}`;
+  const wanted = ["all", ...groups.map((g) => g.id)];
+  if ([...sel.options].map((o) => o.value).join("|") !== wanted.join("|")) {
+    sel.innerHTML = '<option value="all">All batches</option>' + groups.map((g) => `<option value="${g.id}">${label(g)}</option>`).join("");
+    sel.value = wanted.includes(cur) ? cur : "all";
+  }
+}
+
 let reviewDirty = false;
 const REVIEW_PAGE = 40;
 let reviewLimit = REVIEW_PAGE;
@@ -366,6 +393,8 @@ function renderReview() {
   if (isEditing(list)) { reviewDirty = true; return; } // finish typing first; re-render on blur
   reviewDirty = false;
   const all = Array.from(decisionsById.values());
+  refreshBatchOptions(assignBatches(all));
+  const fBatch = $("fBatch").value;
   $("reviewCount").textContent = all.length ? `(${all.length})` : "";
   const minP = parseFloat($("minP").value);
   $("minPVal").textContent = fmtP(minP);
@@ -377,6 +406,7 @@ function renderReview() {
   const scoreOf = (d) => (which === "int" ? d.classification?.intellectual_probability : d.classification?.probability);
   const intOf = (d) => d.classification?.intellectual_probability ?? -1;
   let rows = all.filter((d) => {
+    if (fBatch !== "all" && d._batch !== fBatch) return false;
     const p = scoreOf(d);
     if (minP > 0 && (p === undefined || p < minP)) return false;
     if (fVerdict === "ungraded" && d.verdict) return false;
@@ -427,7 +457,7 @@ function renderReview() {
   });
 }
 document.addEventListener("focusout", () => { if (reviewDirty) setTimeout(() => { if (!isEditing($("reviewList"))) renderReview(); }, 50); });
-for (const id of ["minP", "minPWhich", "fAction", "fSwipe", "fSort", "fVerdict", "fProb"]) $(id).addEventListener("input", () => { reviewLimit = REVIEW_PAGE; renderReview(); });
+for (const id of ["minP", "minPWhich", "fAction", "fSwipe", "fSort", "fVerdict", "fProb", "fBatch"]) $(id).addEventListener("input", () => { reviewLimit = REVIEW_PAGE; renderReview(); });
 
 // ---------- tabs ----------
 function showTab(name) {

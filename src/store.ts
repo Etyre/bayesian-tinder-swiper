@@ -5,6 +5,8 @@ import type { Classification } from "./classifier.js";
 export interface Decision {
   id: string;
   at: string; // ISO timestamp
+  /** Batch this decision belongs to (the batch's start time). Older entries lack it and are grouped by time gap. */
+  batchId?: string;
   mode: "review" | "auto";
   action: "like" | "superlike" | "pass" | "recommend_like" | "recommend_pass" | "skipped";
   threshold: number;
