@@ -120,7 +120,7 @@ function appendLog(entry) {
   el.scrollTop = el.scrollHeight;
 }
 function setStats(s) {
-  $("sSeen").textContent = s.seen; $("sLiked").textContent = s.liked; $("sSuper").textContent = s.superLiked; $("sRec").textContent = s.recommendedLike;
+  $("sSeen").textContent = s.seen; $("sLiked").textContent = s.liked; $("sSuper").textContent = s.superLiked;
   const swiped = s.liked + s.passed;
   $("sLikeRate").textContent = swiped ? Math.round((100 * s.liked) / swiped) + "%" : "–";
   $("sLower").textContent = s.lower; $("sRight").textContent = s.aboutRight; $("sHigher").textContent = s.higher;
