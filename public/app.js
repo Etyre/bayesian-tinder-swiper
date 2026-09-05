@@ -121,6 +121,8 @@ function appendLog(entry) {
 }
 function setStats(s) {
   $("sSeen").textContent = s.seen; $("sLiked").textContent = s.liked; $("sSuper").textContent = s.superLiked; $("sRec").textContent = s.recommendedLike;
+  const swiped = s.liked + s.passed;
+  $("sLikeRate").textContent = swiped ? Math.round((100 * s.liked) / swiped) + "%" : "–";
   $("sLower").textContent = s.lower; $("sRight").textContent = s.aboutRight; $("sHigher").textContent = s.higher;
   $("sBias").textContent = s.meanBias === null ? "–" : (s.meanBias >= 0 ? "+" : "") + Math.round(s.meanBias * 100) + " pts";
   $("gutGap").textContent = s.meanGutGap === null ? "" : `Gut check vs arithmetic: ${s.meanGutGap >= 0 ? "+" : ""}${(s.meanGutGap * 100).toFixed(1)} pts on average over ${s.gutGapCount} profiles.`;
@@ -431,8 +433,11 @@ function renderReview() {
     return a.at < b.at ? 1 : -1;
   });
   const above = all.filter((d) => (scoreOf(d) ?? -1) >= minP).length;
+  const swipedRows = rows.filter((d) => ["like", "superlike", "pass"].includes(d.action));
+  const likedRows = swipedRows.filter((d) => d.action !== "pass").length;
+  const likeRate = swipedRows.length ? ` · like rate ${Math.round((100 * likedRows) / swipedRows.length)}% (${likedRows} of ${swipedRows.length})` : "";
   $("filterSummary").textContent = all.length
-    ? `${rows.length} of ${all.length} profiles shown · ${above} scored at or above ${fmtP(minP)}`
+    ? `${rows.length} of ${all.length} profiles shown · ${above} scored at or above ${fmtP(minP)}${likeRate}`
     : "Nothing evaluated yet.";
   // Reuse existing cards (same decision object => same card), so typed text and open <details> survive.
   const shown = rows.slice(0, reviewLimit);
