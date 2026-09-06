@@ -122,9 +122,6 @@ function setStats(s) {
   $("sSeen").textContent = s.seen; $("sLiked").textContent = s.liked; $("sSuper").textContent = s.superLiked;
   const swiped = s.liked + s.passed;
   $("sLikeRate").textContent = swiped ? Math.round((100 * s.liked) / swiped) + "%" : "–";
-  $("sLower").textContent = s.lower; $("sRight").textContent = s.aboutRight; $("sHigher").textContent = s.higher;
-  $("sBias").textContent = s.meanBias === null ? "–" : (s.meanBias >= 0 ? "+" : "") + Math.round(s.meanBias * 100) + " pts";
-  $("gutGap").textContent = s.meanGutGap === null ? "" : `Gut check vs arithmetic: ${s.meanGutGap >= 0 ? "+" : ""}${(s.meanGutGap * 100).toFixed(1)} pts on average over ${s.gutGapCount} profiles.`;
 }
 async function refreshStats() { setStats((await (await fetch("/api/state")).json()).stats); }
 

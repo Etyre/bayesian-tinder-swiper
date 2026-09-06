@@ -62,7 +62,6 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
 .error { color: var(--danger); font-size: 12px; }
 .empty { color: var(--muted); padding: 30px; text-align: center; border: 1px dashed var(--line); border-radius: 12px; }
 
-.stats.agreement { grid-template-columns: repeat(3, 1fr); margin-top: 6px; }
 .verdict { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
 .vlabel { color: var(--muted); font-size: 12px; }
 .vbtn { padding: 5px 10px; font-size: 12px; }
