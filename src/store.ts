@@ -31,6 +31,8 @@ export interface Decision {
   effort?: string;
   /** Scraped profile text so the dashboard can show the bio. */
   profileText?: string;
+  /** Distance shown on the profile, in miles (Tinder shows "N miles away"; km converted). */
+  distanceMiles?: number;
   /** What you did in review mode: swiped from the dashboard, or by hand in the browser. */
   userSwipe?: "like" | "pass" | "browser" | null;
   /** Your grade of the model's probability: should it have been higher, lower, or was it about right? */

@@ -129,9 +129,18 @@ function setStats(s) {
 async function refreshStats() { setStats((await (await fetch("/api/state")).json()).stats); }
 
 // ---------- shared card rendering ----------
+function distanceOf(d) {
+  if (typeof d.distanceMiles === "number") return d.distanceMiles;
+  const m = (d.profileText ?? "").match(/(\d+(?:\.\d+)?)\s*(miles?|mi|km|kilomet\w+)\s+away/i);
+  if (!m) return undefined;
+  const n = parseFloat(m[1]);
+  return /k/i.test(m[2]) ? Math.round(n * 0.621371) : n;
+}
 function fillClassification(root, d) {
   const c = d.classification;
+  const dist = distanceOf(d);
   root.querySelector(".name").textContent = `${d.name ?? "Unknown"}${d.age ? `, ${d.age}` : ""}`;
+  if (dist !== undefined) { const sp = document.createElement("span"); sp.className = "dist"; sp.textContent = `${dist} mi`; root.querySelector(".name").appendChild(sp); }
   const badge = root.querySelector(".action");
   const actionLabel = { like: "Liked", superlike: "Superliked", pass: "Passed", recommend_like: "Recommends like", recommend_pass: "Recommends pass", skipped: "Not scored" };
   badge.textContent = actionLabel[d.action] ?? d.action.replace("_", " ");
@@ -438,6 +447,7 @@ function renderReview(userInitiated = true) {
       return rank(b) - rank(a) || intOf(b) - intOf(a) || (b.at > a.at ? 1 : -1);
     }
     if (fSort === "oldest") return a.at < b.at ? -1 : 1;
+    if (fSort === "near") return (distanceOf(a) ?? 9999) - (distanceOf(b) ?? 9999) || (b.at > a.at ? 1 : -1);
     return a.at < b.at ? 1 : -1;
   });
   const above = all.filter((d) => (scoreOf(d) ?? -1) >= minP).length;

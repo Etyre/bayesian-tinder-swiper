@@ -22,6 +22,14 @@ export interface SwiperState {
   lastBatchEnd: string | null;
 }
 
+/** "22 miles away" / "35 km away" from the profile text, in miles. */
+function parseDistance(text: string): number | undefined {
+  const m = text.match(/(\d+(?:\.\d+)?)\s*(miles?|mi|km|kilomet\w+)\s+away/i);
+  if (!m) return undefined;
+  const n = parseFloat(m[1]);
+  return /k/i.test(m[2]) ? Math.round(n * 0.621371) : n;
+}
+
 /** Strip Tinder UI chrome out of the scraped card text. */
 function cleanProfileText(text: string): string {
   const junk = /^(open profile|close profile|previous photo|next photo|photos?|photo \d+|nope|like|super like|rewind|first impressions?|hide|keyboard shortcut|press .* to .*)$/i;
@@ -327,6 +335,7 @@ export class Swiper extends EventEmitter {
           age: c?.age ?? profile.age,
           photos: photoUrls,
           profileText: cleanProfileText(profile.text),
+          ...(parseDistance(profile.text) !== undefined ? { distanceMiles: parseDistance(profile.text) } : {}),
           classification: c,
           usage: result.usage,
           ...(bioOnlyProbability !== undefined ? { bioOnlyProbability } : {}),
@@ -351,6 +360,7 @@ export class Swiper extends EventEmitter {
           age: profile.age,
           photos: photoUrls,
           profileText: cleanProfileText(profile.text),
+          ...(parseDistance(profile.text) !== undefined ? { distanceMiles: parseDistance(profile.text) } : {}),
           classification: null,
           error: msg,
         };
