@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import { TinderBrowser } from "./tinder.js";
 import { classifyProfile } from "./classifier.js";
+import { ContactedEliError } from "./llm_inbox.js";
 import { appendDecision, updateDecision, type Decision } from "./store.js";
 import { loadSettings, updateSettings, type Settings } from "./config.js";
 
@@ -364,10 +365,13 @@ export class Swiper extends EventEmitter {
           classification: null,
           error: msg,
         };
-        if (/401|403|api key|authentication/i.test(msg)) {
+        // The model asked to talk to Eli (recorded and notified by the shared LLM inbox): stop here, no
+        // retry and no next batch. Eli answers it with `llm-inbox`. An auth failure also ends the run.
+        if (e instanceof ContactedEliError || /401|403|api key|authentication/i.test(msg)) {
           appendDecision(decision);
           this.emit("decision", decision);
           this.state.lastError = msg;
+          this.endBatch(e instanceof ContactedEliError ? "the model contacted Eli; see llm-inbox." : "API authentication failed.");
           this.setStatus("error");
           return;
         }

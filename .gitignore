@@ -2,3 +2,12 @@ node_modules/
 dist/
 .env
 data/
+.DS_Store
+out/
+build/
+*.log
+*.pma
+*.mp4
+*.mov
+*.csv
+*.xlsx

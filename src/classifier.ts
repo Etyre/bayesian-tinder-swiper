@@ -4,6 +4,7 @@ import { z } from "zod";
 import { buildSystemPrompt, buildFeedbackPrompt } from "./prompt.js";
 import { feedbackExamples, exemplarProfiles } from "./store.js";
 import { EXCEPTION_THRESHOLD, type Settings } from "./config.js";
+import { preamble, contactTool, checkContact, ContactedEliError } from "./llm_inbox.js";
 
 const EvidenceSchema = z.object({
   criterion: z.enum(["veg", "intellectual"]),
@@ -62,6 +63,31 @@ export interface ClassifyResult {
 
 const client = new Anthropic();
 
+/**
+ * System prompt blocks: Eli's shared preamble and the stable classifier prompt first (cached), then the
+ * user's guidance and graded examples, which change rarely.
+ */
+export function buildSystem(settings: Settings): Anthropic.TextBlockParam[] {
+  const system: Anthropic.TextBlockParam[] = [
+    { type: "text", text: `${preamble()}\n\n${buildSystemPrompt(settings.prior)}`, cache_control: { type: "ephemeral" } },
+  ];
+  const feedback = buildFeedbackPrompt(
+    settings.userGuidance,
+    feedbackExamples(40).map((d) => ({
+      name: d.name,
+      age: d.age,
+      modelProbability: d.classification!.probability,
+      verdict: d.verdict,
+      userProbability: d.userProbability,
+      note: d.note,
+      profileSnippet: (d.profileText ?? "").replace(/\s+/g, " ").slice(0, 220),
+    })),
+    exemplarProfiles().map((d) => ({ name: d.name, age: d.age, text: d.profileText ?? "" })),
+  );
+  if (feedback) system.push({ type: "text", text: feedback });
+  return system;
+}
+
 export async function classifyProfile(profile: ProfileInput, settings: Settings): Promise<ClassifyResult> {
   const content: Anthropic.ContentBlockParam[] = [];
 
@@ -96,24 +122,10 @@ export async function classifyProfile(profile: ProfileInput, settings: Settings)
   // Haiku 4.5 predates adaptive thinking and the effort parameter; every other
   // offered model (Opus 5, Sonnet 5, Opus 4.8, Fable 5.1) takes both.
   const isHaiku = /haiku/i.test(settings.model);
-  // Stable prompt first (cached), then the user's guidance and graded examples, which change rarely.
-  const system: Anthropic.TextBlockParam[] = [
-    { type: "text", text: buildSystemPrompt(settings.prior), cache_control: { type: "ephemeral" } },
-  ];
-  const feedback = buildFeedbackPrompt(
-    settings.userGuidance,
-    feedbackExamples(40).map((d) => ({
-      name: d.name,
-      age: d.age,
-      modelProbability: d.classification!.probability,
-      verdict: d.verdict,
-      userProbability: d.userProbability,
-      note: d.note,
-      profileSnippet: (d.profileText ?? "").replace(/\s+/g, " ").slice(0, 220),
-    })),
-    exemplarProfiles().map((d) => ({ name: d.name, age: d.age, text: d.profileText ?? "" })),
-  );
-  if (feedback) system.push({ type: "text", text: feedback });
+  const system = buildSystem(settings);
+  // The shared contact_eli tool rides along on every call; the JSON schema still shapes the final answer.
+  const tools: Anthropic.Tool[] = [contactTool()];
+  const messages: Anthropic.MessageParam[] = [{ role: "user", content }];
 
   const response = await client.messages.parse({
     model: settings.model,
@@ -124,8 +136,14 @@ export async function classifyProfile(profile: ProfileInput, settings: Settings)
       format: zodOutputFormat(settings.captureReasoning ? ClassificationSchema : TerseClassificationSchema),
     },
     system,
-    messages: [{ role: "user", content }],
+    tools,
+    messages,
   });
+
+  // The model may have used the tool (or an @ELI: line) to reach Eli. If so it is recorded and he is
+  // notified; this profile is not scored and the caller stops the batch.
+  const contact = checkContact({ model: settings.model, system, messages, response, tools });
+  if (contact) throw new ContactedEliError(contact);
 
   const usage = {
     input: response.usage.input_tokens,

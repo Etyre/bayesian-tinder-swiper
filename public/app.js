@@ -6,6 +6,12 @@ let state = { status: "idle", awaiting: null, swiping: false };
 const decisionsById = new Map();
 const cardEls = new Map();
 const noteDrafts = new Map(); // unsaved note text by decision id, survives card rebuilds
+// Drafts are never lost: anything typed is mirrored to localStorage on every change and restored
+// before the field is shown. Cleared only once the server has accepted it.
+const draftKey = (view, field, id) => `draft:${view}:${field}:${id ?? ""}`;
+function draftGet(key) { try { return localStorage.getItem(key); } catch { return null; } }
+function draftSet(key, value) { try { localStorage.setItem(key, value); } catch {} }
+function draftClear(key) { try { localStorage.removeItem(key); } catch {} }
 const reviewCards = new Map(); // decision id -> { el, ref } in the Review tab
 const isEditing = (el) => el && el.contains(document.activeElement) && ["TEXTAREA", "INPUT"].includes(document.activeElement.tagName);
 let currentDecisionId = null;
@@ -65,8 +71,17 @@ function renderSettingsDerived() {
 }
 function fillSettings(s) {
   settings = s;
-  for (const f of fields) $(f).value = String(s[f]);
+  // An edit you have not pressed Save on yet wins over the saved copy, so a reload never loses it.
+  for (const f of fields) $(f).value = draftGet(draftKey("settings", f)) ?? String(s[f]);
   renderSettingsDerived();
+}
+for (const f of fields) {
+  const early = draftGet(draftKey("settings", f)); // restore before first paint; fillSettings keeps it
+  if (early !== null) $(f).value = early;
+  $(f).addEventListener("input", () => {
+    const key = draftKey("settings", f);
+    if ($(f).value === String(settings[f])) draftClear(key); else draftSet(key, $(f).value);
+  });
 }
 async function saveSettings() {
   const patch = {};
@@ -77,7 +92,10 @@ async function saveSettings() {
   }
   const res = await fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
   const body = await res.json();
-  if (res.ok) { fillSettings(body); $("saveMsg").textContent = "Saved."; }
+  if (res.ok) {
+    for (const f of fields) draftClear(draftKey("settings", f)); // accepted by the server: the draft is no longer needed
+    fillSettings(body); $("saveMsg").textContent = "Saved.";
+  }
   else $("saveMsg").textContent = "Error: " + body.error;
   setTimeout(() => ($("saveMsg").textContent = ""), 2500);
 }
@@ -275,9 +293,10 @@ function buildCard(d) {
   }
   const vbtns = tpl.querySelectorAll(".vbtn:not(.exemplar)");
   const range = tpl.querySelector(".userpRange");
+  const userpKey = draftKey("review", "userProbability", d.id);
   const paint = (v, up) => {
     vbtns.forEach((b) => b.classList.toggle("on", b.dataset.v === v));
-    range.value = typeof up === "number" ? Math.round(up * 100) : "";
+    range.value = draftGet(userpKey) ?? (typeof up === "number" ? Math.round(up * 100) : "");
   };
   paint(d.verdict ?? null, d.userProbability);
   const send = async (verdict, userProbability) => {
@@ -286,9 +305,11 @@ function buildCard(d) {
       const body = await res.json();
       const cur = decisionsById.get(d.id) ?? d;
       cur.verdict = body.decision.verdict; cur.userProbability = body.decision.userProbability;
+      draftClear(userpKey);
       paint(cur.verdict ?? null, cur.userProbability); setStats(body.stats);
     }
   };
+  range.oninput = () => draftSet(userpKey, range.value);
   vbtns.forEach((b) => {
     b.onclick = () => send(b.classList.contains("on") ? null : b.dataset.v, b.classList.contains("on") ? null : undefined);
   });
@@ -308,23 +329,28 @@ function buildCard(d) {
   };
   range.onkeydown = (e) => { if (e.key === "Enter") range.blur(); };
   const note = tpl.querySelector(".note");
-  note.value = noteDrafts.get(d.id) ?? d.note ?? "";
+  const noteKey = draftKey("review", "note", d.id);
+  const storedDraft = draftGet(noteKey);
+  note.value = storedDraft ?? noteDrafts.get(d.id) ?? d.note ?? "";
   let noteTimer = null;
   const saveNote = async () => {
     const text = note.value;
     noteDrafts.set(d.id, text);
-    if ((decisionsById.get(d.id)?.note ?? "") === text) return;
+    if ((decisionsById.get(d.id)?.note ?? "") === text) { draftClear(noteKey); return; }
     const res = await fetch(`/api/decisions/${d.id}/note`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note: text }) });
     if (res.ok) {
       const body = await res.json();
       const cur = decisionsById.get(d.id) ?? d;
       cur.note = body.decision.note; // mutate in place so no card rebuild is triggered
       if (noteDrafts.get(d.id) === cur.note) noteDrafts.delete(d.id);
+      if (note.value === cur.note) draftClear(noteKey); // only once the server holds exactly this text
       note.classList.add("saved"); setTimeout(() => note.classList.remove("saved"), 1200);
     }
   };
-  note.oninput = () => { noteDrafts.set(d.id, note.value); clearTimeout(noteTimer); noteTimer = setTimeout(saveNote, 800); };
+  note.oninput = () => { noteDrafts.set(d.id, note.value); draftSet(noteKey, note.value); clearTimeout(noteTimer); noteTimer = setTimeout(saveNote, 800); };
   note.onblur = () => { clearTimeout(noteTimer); saveNote(); };
+  // A draft that outlived a reload before its save went through: send it now.
+  if (storedDraft !== null && storedDraft !== (d.note ?? "")) noteTimer = setTimeout(saveNote, 800);
   if (!d.classification) { tpl.querySelector(".verdict").remove(); note.remove(); }
   tpl.querySelector(".ptext").textContent = d.profileText || "(no profile text captured)";
   const u = d.usage ? ` · ${d.usage.input + d.usage.cacheRead} in / ${d.usage.output} out tokens` : "";

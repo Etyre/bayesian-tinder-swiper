@@ -7,7 +7,9 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx scripts/test-classifier.ts",
+    "scan": "tsx scripts/scan-intellectual.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "latest",

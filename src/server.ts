@@ -1,3 +1,11 @@
+/**
+ * Tinder Swiper: a local dashboard (http://localhost:4747) that drives Tinder in a Playwright-controlled
+ * Chrome and has Claude score each profile for the vegan/vegetarian criterion, then swipes (or asks you to).
+ * Entry point: `npm run dev`. Config: .env (API key, PORT) and data/settings.json (dashboard settings).
+ * State: data/decisions.jsonl, data/photos/, data/browser-profile/. Logs: stdout only (the terminal that
+ * ran `npm run dev`, mirrored in the dashboard's Log panel); error screenshots land in data/errors/.
+ * Every model call goes through src/classifier.ts and the shared LLM inbox (src/llm_inbox.ts).
+ */
 import "dotenv/config";
 import express from "express";
 import fs from "node:fs";

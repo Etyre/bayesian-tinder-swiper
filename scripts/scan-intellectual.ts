@@ -8,6 +8,7 @@ import "dotenv/config";
 import { readDecisions } from "../src/store.js";
 import { classifyProfile } from "../src/classifier.js";
 import { loadSettings } from "../src/config.js";
+import { ContactedEliError } from "../src/llm_inbox.js";
 
 const KEYWORDS = /philosoph|physic|math|scien|research|phd|professor|academi|book|read|novel|nerd|curious|curiosity|intellect|thought experiment|epistem|rational|debate|econom|history|linguist|neuro|engineer|polymath|ideas|existential|stoic|nietzsche|kant|sartre|camus|dostoevsky|poetry|writer|writing|journal|npr|podcast|lecture|learn|question|consciousness|ethic|effective altruism|lesswrong|ai |machine learning|astrophys|biolog|chemist|cognitive|psycholog|anthropolog|sociolog|political|theory|thinker|deep conv|grad school|masters|master's|dissertation|thesis/i;
 
@@ -33,6 +34,11 @@ for (const { d, hits } of shortlist) {
     results.push({ name: d.name ?? "?", age: d.age, exception: c.intellectual_exception, pInt: c.intellectual_probability, pVeg: c.probability, hits, id: d.id, top });
     process.stdout.write(".");
   } catch (e) {
+    if (e instanceof ContactedEliError) {
+      // Recorded and notified by the shared LLM inbox. Stop the scan; do not push on to the next profile.
+      console.error(`\n${e.message}`);
+      process.exit(3);
+    }
     process.stdout.write("x");
   }
 }
